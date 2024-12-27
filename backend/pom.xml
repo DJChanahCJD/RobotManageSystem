@@ -17,6 +17,7 @@
         <java.version>17</java.version>
         <idme.jar.path>C:\Users\DJCHAN\Desktop\Junior1\Industrial_data\3\RobotManageSystem\backend\src\jar</idme.jar.path>
         <idme.app.name>intelligentrobotengineering</idme.app.name>
+        <lombok.version>1.18.28</lombok.version>
     </properties>
     <repositories>
         <repository>
@@ -34,7 +35,6 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <optional>true</optional>
         </dependency>
 
         <dependency>

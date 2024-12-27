@@ -17,3 +17,5 @@ public class RobotManageSystemApplication {
         SpringApplication.run(RobotManageSystemApplication.class, args);
     }
 }
+
+
