@@ -1,0 +1,17 @@
+server:
+  port: 6253
+
+spring:
+  application:
+    name: RobotManageSystem
+
+# 将 properties 中的配置移到这里
+delegate:
+  subAppId: rdm_1dd2dce363cc4e5fbe951a171a91b825_app
+  domain: https://iam.cn-north-4.myhuaweicloud.com
+  domainName: djchanahcjd
+  userName: djchanahcjd
+  password: Langshi987
+  endpoint: https://iam.cn-north-4.myhuaweicloud.com
+  region: cn-north-4
+  serviceType: services/dynamic
