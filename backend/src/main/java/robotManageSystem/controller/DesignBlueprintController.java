@@ -24,6 +24,7 @@ import org.springframework.http.MediaType;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
 import com.huawei.innovation.rdm.coresdk.basic.exception.RDMCoreSDKException;
+import com.huawei.innovation.rdm.coresdk.basic.vo.QueryCondition;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
 import com.huawei.innovation.rdm.dto.entity.XDMFileModelViewDTO;
@@ -157,8 +158,7 @@ public class DesignBlueprintController {
         try {
             QueryRequestVo queryRequestVo = new QueryRequestVo();
             if (keyword != null && !keyword.trim().isEmpty()) {
-                // 可以根据蓝图描述等进行搜索
-                // queryRequestVo.setCondition(...);
+                queryRequestVo.setConditions(Collections.singletonList(new QueryCondition("description", keyword)));
             }
 
             List<DesignBlueprintViewDTO> blueprints = designBlueprintDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
