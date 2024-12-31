@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-RobotManageSystemApplication<RobotManageSystem>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "robotManageSystem.RobotManageSystemApplication",
+            "projectName": "RobotManageSystem",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

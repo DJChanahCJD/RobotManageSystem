@@ -1,42 +1,47 @@
 package robotManageSystem.controller;
 
-import java.util.List;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.CrossOrigin;
 
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
-import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdsDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdsModifierDTO;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.UserDelegator;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserCreateDTO;
-import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserSaveAllDTO;
-import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserSaveDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserViewDTO;
 
+import robotManageSystem.dto.BaseResponse;
+import robotManageSystem.utils.JwtUtil;
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/user")
 @CrossOrigin(origins = "*")
 public class UserController {
     @Autowired
     private UserDelegator userDelegator;
+
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @PostMapping("/create")
     public ResponseEntity<?> createUser(@RequestBody UserCreateDTO createDTO) {
@@ -55,13 +60,23 @@ public class UserController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
         try {
+            // 1. 验证用户是否存在
+            PersistObjectIdDecryptDTO queryDto = new PersistObjectIdDecryptDTO();
+            queryDto.setId(id);
+            UserViewDTO user = userDelegator.get(queryDto);
+            if (user == null) {
+                System.out.println("用户不存在");
+                return ResponseEntity.notFound().build();
+            }
+
+            // 2. 删除用户
             PersistObjectIdModifierDTO idDTO = new PersistObjectIdModifierDTO();
             idDTO.setId(id);
             userDelegator.delete(idDTO);
-            return ResponseEntity.ok("删除用户成功");
+            return ResponseEntity.ok(BaseResponse.ok("删除用户成功"));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body("删除用户失败: " + e.getMessage());
+                .body(BaseResponse.error("删除用户失败: " + e.getMessage()));
         }
     }
 
@@ -127,5 +142,46 @@ public class UserController {
     @PutMapping("/{id}")
     public UserViewDTO updateUser(@PathVariable String id, @RequestBody UserUpdateDTO updateDTO) {
         return userDelegator.update(updateDTO);
+    }
+
+    @GetMapping("/info")
+    public ResponseEntity<?> getInfo(@RequestHeader(value = "Access-Token", required = false) String token) {
+        try {
+            // 验证 token
+            String userId = jwtUtil.validateToken(token);
+            if (userId == null) {
+                return ResponseEntity.status(401)
+                    .body(Collections.singletonMap("message", "token无效"));
+            }
+
+            // 构造与 mock 数据相同的返回格式
+            Map<String, Object> role = new HashMap<>();
+            role.put("id", "admin");
+            role.put("name", "管理员");
+            role.put("describe", "拥有所有权限");
+            role.put("permissions", getSimplePermissions());
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("role", role);
+            result.put("name", "Admin");
+            result.put("avatar", "https://gw.alipayobjects.com/zos/rmsportal/jZUIxmJycoymBprLOUbT.png");
+
+            return ResponseEntity.ok(Collections.singletonMap("result", result));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(Collections.singletonMap("message", "获取用户信息失败：" + e.getMessage()));
+        }
+    }
+
+    private List<Map<String, Object>> getSimplePermissions() {
+        List<Map<String, Object>> permissions = new ArrayList<>();
+
+        Map<String, Object> permission = new HashMap<>();
+        permission.put("permissionId", "admin");
+        permission.put("permissionName", "仪表盘");
+        permission.put("actions", Arrays.asList("add", "query", "update", "delete"));
+
+        permissions.add(permission);
+        return permissions;
     }
 }

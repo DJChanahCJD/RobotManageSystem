@@ -1,12 +1,12 @@
 package robotManageSystem.controller;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.MediaType;
 
+import com.huawei.innovation.rdm.bean.entity.XDMFileModel;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
 import com.huawei.innovation.rdm.coresdk.basic.exception.RDMCoreSDKException;
@@ -33,10 +33,11 @@ import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBl
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBlueprintSaveDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBlueprintUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBlueprintViewDTO;
-import com.huawei.innovation.rdm.bean.entity.XDMFileModel;
+
+import robotManageSystem.dto.BaseResponse;
 
 @RestController
-@RequestMapping("/api/blueprints")
+@RequestMapping("/api/blueprint")
 @CrossOrigin(origins = "*")
 public class DesignBlueprintController {
     @Autowired
@@ -47,10 +48,10 @@ public class DesignBlueprintController {
         try {
             System.out.println("开始创建设计蓝图: " + createDTO);
             Object result = designBlueprintDelegator.create(createDTO);
-            return ResponseEntity.ok(Collections.singletonMap("data", result));
+            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (RDMCoreSDKException e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "创建设计蓝图失败：" + e.getMessage()));
+                .body(BaseResponse.error("创建设计蓝图失败：" + e.getMessage()));
         }
     }
 
@@ -116,11 +117,11 @@ public class DesignBlueprintController {
                 .header("Content-Disposition",
                     "attachment; filename=" + fileModel.getName())
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(fileModel);
+                .body(BaseResponse.ok(fileModel));
 
         } catch (RDMCoreSDKException e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "获取蓝图失败：" + e.getMessage()));
+                .body(BaseResponse.error("获取蓝图失败：" + e.getMessage()));
         }
     }
 
@@ -130,10 +131,10 @@ public class DesignBlueprintController {
             PersistObjectIdModifierDTO idDTO = new PersistObjectIdModifierDTO();
             idDTO.setId(id);
             designBlueprintDelegator.delete(idDTO);
-            return ResponseEntity.ok(Collections.singletonMap("message", "设计蓝图删除成功"));
+            return ResponseEntity.ok(BaseResponse.ok(Collections.singletonMap("message", "设计蓝图删除成功")));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "删除设计蓝图失败：" + e.getMessage()));
+                .body(BaseResponse.error("删除设计蓝图失败：" + e.getMessage()));
         }
     }
 
@@ -143,10 +144,10 @@ public class DesignBlueprintController {
             PersistObjectIdDecryptDTO idDTO = new PersistObjectIdDecryptDTO();
             idDTO.setId(id);
             DesignBlueprintViewDTO blueprint = designBlueprintDelegator.get(idDTO);
-            return ResponseEntity.ok(blueprint);
+            return ResponseEntity.ok(BaseResponse.ok(blueprint));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "获取设计蓝图失败：" + e.getMessage()));
+                .body(BaseResponse.error("获取设计蓝图失败：" + e.getMessage()));
         }
     }
 
@@ -170,10 +171,10 @@ public class DesignBlueprintController {
             result.put("totalCount", totalCount);
             result.put("data", blueprints);
 
-            return ResponseEntity.ok(Collections.singletonMap("result", result));
+            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "获取设计蓝图列表失败：" + e.getMessage()));
+                .body(BaseResponse.error("获取设计蓝图列表失败：" + e.getMessage()));
         }
     }
 
@@ -181,10 +182,10 @@ public class DesignBlueprintController {
     public ResponseEntity<?> updateBlueprint(@PathVariable Long id, @RequestBody DesignBlueprintUpdateDTO updateDTO) {
         try {
             DesignBlueprintViewDTO result = designBlueprintDelegator.update(updateDTO);
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "更新设计蓝图失败：" + e.getMessage()));
+                .body(BaseResponse.error("更新设计蓝图失败：" + e.getMessage()));
         }
     }
 
@@ -198,7 +199,7 @@ public class DesignBlueprintController {
                 .body(null/* 文件流对象 */);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "下载蓝图文件失败：" + e.getMessage()));
+                .body(BaseResponse.error("下载蓝图文件失败：" + e.getMessage()));
         }
     }
 
@@ -206,10 +207,10 @@ public class DesignBlueprintController {
     public ResponseEntity<?> countBlueprints() {
         try {
             long count = designBlueprintDelegator.count(new QueryRequestVo());
-            return ResponseEntity.ok(Collections.singletonMap("count", count));
+            return ResponseEntity.ok(BaseResponse.ok(Collections.singletonMap("count", count)));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "获取设计蓝图数量失败：" + e.getMessage()));
+                .body(BaseResponse.error("获取设计蓝图数量失败：" + e.getMessage()));
         }
     }
 }
