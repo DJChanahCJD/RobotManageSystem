@@ -9,13 +9,6 @@
     :i18nRender="i18nRender"
     v-bind="settings"
   >
-    <!-- Ads begin
-      广告代码 真实项目中请移除
-      production remove this Ads
-    -->
-    <ads v-if="isProPreviewSite && !collapsed"/>
-    <!-- Ads end -->
-
     <!-- 1.0.0+ 版本 pro-layout 提供 API，
           我们推荐使用这种方式进行 LOGO 和 title 自定义
     -->
@@ -55,21 +48,19 @@
 <script>
 import { SettingDrawer, updateTheme } from '@ant-design-vue/pro-layout'
 import { i18nRender } from '@/locales'
-import { mapState } from 'vuex'
 import { CONTENT_WIDTH_TYPE, SIDEBAR_TYPE, TOGGLE_MOBILE_TYPE } from '@/store/mutation-types'
 
 import defaultSettings from '@/config/defaultSettings'
 import RightContent from '@/components/GlobalHeader/RightContent'
 import GlobalFooter from '@/components/GlobalFooter'
-import Ads from '@/components/Other/CarbonAds'
+import { asyncRouterMap } from '@/config/router.config'
 
 export default {
   name: 'BasicLayout',
   components: {
     SettingDrawer,
     RightContent,
-    GlobalFooter,
-    Ads
+    GlobalFooter
   },
   data () {
     return {
@@ -107,13 +98,14 @@ export default {
     }
   },
   computed: {
-    ...mapState({
-      // 动态主路由
-      mainMenu: state => state.permission.addRouters
-    })
+    mainMenu () {
+      // 过滤出需要显示在菜单中的路由
+      return asyncRouterMap.filter(route => !route.hidden)
+    }
   },
   created () {
     const routes = this.mainMenu.find(item => item.path === '/')
+    // 过滤掉不需要显示在菜单中的子路由
     this.menus = (routes && routes.children) || []
     // 处理侧栏收起状态
     this.$watch('collapsed', () => {
