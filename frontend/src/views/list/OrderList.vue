@@ -18,8 +18,8 @@
             <a-col :md="6" :sm="24">
               <a-form-item label="类型">
                 <a-select v-model="queryParam.type" placeholder="请选择类型" allowClear>
-                  <a-select-option value="1">类型一</a-select-option>
-                  <a-select-option value="2">类型二</a-select-option>
+                  <a-select-option value="1">制造</a-select-option>
+                  <a-select-option value="2">采购</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -88,8 +88,8 @@
           <a-form-model-item label="类型" prop="type">
             <div>类型</div>
             <a-select v-model="form.type" placeholder="请选择类型" style="width: 100%">
-              <a-select-option value="1">类型一</a-select-option>
-              <a-select-option value="2">类型二</a-select-option>
+              <a-select-option value="1">制造</a-select-option>
+              <a-select-option value="2">采购</a-select-option>
             </a-select>
           </a-form-model-item>
           <a-form-model-item label="订单日期" prop="orderDate">
