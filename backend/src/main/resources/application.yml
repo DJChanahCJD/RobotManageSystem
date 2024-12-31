@@ -12,3 +12,10 @@ delegate:
   endpoint: https://iam.cn-north-4.myhuaweicloud.com
   regionName: cn-north-4
   serviceType: services/dynamic
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB      # 单个文件大小限制
+      max-request-size: 20MB    # 总请求大小限制
+      enabled: true            # 启用文件上传功能

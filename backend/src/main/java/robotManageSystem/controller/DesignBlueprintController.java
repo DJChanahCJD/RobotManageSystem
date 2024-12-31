@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -20,28 +22,35 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.huawei.innovation.rdm.bean.entity.XDMFileModel;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
+import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
 import com.huawei.innovation.rdm.coresdk.basic.exception.RDMCoreSDKException;
-import com.huawei.innovation.rdm.coresdk.basic.vo.QueryCondition;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
+import com.huawei.innovation.rdm.coresdk.basic.vo.RDMResultVO;
+import com.huawei.innovation.rdm.delegate.service.FileDelegatorService;
 import com.huawei.innovation.rdm.dto.entity.XDMFileModelViewDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.DesignBlueprintDelegator;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBlueprintCreateDTO;
-import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBlueprintSaveDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBlueprintUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBlueprintViewDTO;
 
 import robotManageSystem.dto.BaseResponse;
-
+import robotManageSystem.model.CustomFile;
+import robotManageSystem.service.XDMFileService;
 @RestController
 @RequestMapping("/api/blueprint")
 @CrossOrigin(origins = "*")
 public class DesignBlueprintController {
     @Autowired
     private DesignBlueprintDelegator designBlueprintDelegator;
+
+    @Autowired
+    private XDMFileService xdmFileService;
+
+    @Autowired
+    private FileDelegatorService fileDelegatorService;
 
     @PostMapping("/create")
     public ResponseEntity<?> createBlueprint(@RequestBody DesignBlueprintCreateDTO createDTO) {
@@ -59,8 +68,9 @@ public class DesignBlueprintController {
     @PostMapping("/{id}/upload")
     public ResponseEntity<?> uploadBlueprintFile(
             @PathVariable Long id,
-            @RequestParam("file") MultipartFile file
+            @RequestParam("bluePrint") MultipartFile file
     ) {
+        System.out.println("开始上传蓝图文件: " + id + " " + file.getOriginalFilename());
         try {
             // 1. 验证蓝图是否存在
             PersistObjectIdDecryptDTO queryDto = new PersistObjectIdDecryptDTO();
@@ -71,28 +81,24 @@ public class DesignBlueprintController {
                 return ResponseEntity.notFound().build();
             }
 
-            // 2. 构造文件模型
-            XDMFileModel fileModel = new XDMFileModel();
-            fileModel.setName(file.getOriginalFilename());
+            // 2. 构造自定义文件对象
+            CustomFile customFile = new CustomFile();
+            customFile.setId(String.valueOf(id));
+            customFile.setFile(file);
 
-            // 3. 构造保存参数
-            DesignBlueprintSaveDTO saveDto = new DesignBlueprintSaveDTO();
-            saveDto.setBluePrint(Collections.singletonList(fileModel));
+            // 3. 上传文件
+            RDMResultVO result = xdmFileService.uploadFile(customFile);
+            System.out.println("result from uploadFile: " + result);
 
-            // 4. 调用保存方法
-            List<DesignBlueprintSaveDTO> dtoList = Collections.singletonList(saveDto);
-            int result = designBlueprintDelegator.save(dtoList);
-
-            if (result > 0) {
-                return ResponseEntity.ok(Collections.singletonMap("data", "文件上传成功"));
-            } else {
+            if (result == null || result.getData() == null) {
                 return ResponseEntity.internalServerError()
-                    .body(Collections.singletonMap("error", "文件上传失败"));
+                    .body(BaseResponse.error("文件上传失败"));
             }
 
-        } catch (RDMCoreSDKException e) {
+            return ResponseEntity.ok(BaseResponse.ok(result));
+        } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "保存蓝图失败：" + e.getMessage()));
+                .body(BaseResponse.error("上传蓝图失败：" + e.getMessage()));
         }
     }
 
@@ -153,13 +159,27 @@ public class DesignBlueprintController {
 
     @GetMapping("/list")
     public ResponseEntity<?> findBlueprints(
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String BlueprintDescription,
+            @RequestParam(required = false) String ID,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
             QueryRequestVo queryRequestVo = new QueryRequestVo();
-            if (keyword != null && !keyword.trim().isEmpty()) {
-                queryRequestVo.setConditions(Collections.singletonList(new QueryCondition("description", keyword)));
+
+            // 处理描述的模糊查询
+            if (BlueprintDescription != null && !BlueprintDescription.trim().isEmpty()) {
+                queryRequestVo.addCondition("blueprintDescription", ConditionType.LIKE, BlueprintDescription);
+            }
+
+            // 处理ID的精确查询
+            if (ID != null && !ID.trim().isEmpty()) {
+                try {
+                    Long idValue = Long.parseLong(ID.trim());
+                    queryRequestVo.addCondition("id", ConditionType.EQUAL, idValue);  // 使用 EQUAL 而不是 LIKE
+                } catch (NumberFormatException e) {
+                    return ResponseEntity.badRequest()
+                        .body(BaseResponse.error("ID必须是数字"));
+                }
             }
 
             List<DesignBlueprintViewDTO> blueprints = designBlueprintDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
@@ -180,6 +200,7 @@ public class DesignBlueprintController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateBlueprint(@PathVariable Long id, @RequestBody DesignBlueprintUpdateDTO updateDTO) {
+        System.out.println("开始更新设计蓝图: " + updateDTO);
         try {
             DesignBlueprintViewDTO result = designBlueprintDelegator.update(updateDTO);
             return ResponseEntity.ok(BaseResponse.ok(result));
@@ -211,6 +232,31 @@ public class DesignBlueprintController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(BaseResponse.error("获取设计蓝图数量失败：" + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/image/{fileId}")
+    public void getImage(
+            @PathVariable String fileId,
+            @RequestParam String instanceId,
+            HttpServletResponse response
+    ) {
+        try {
+            // 设置响应类型
+            response.setContentType("image/png");  // 根据实际图片类型设置
+
+            // 调用下载
+            fileDelegatorService.downloadFile(
+                fileId,
+                "DesignBlueprint",
+                "BluePrint",
+                instanceId,
+                "1dd2dce363cc4e5fbe951a171a91b825",
+                "0",
+                response
+            );
+        } catch (Exception e) {
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 }
