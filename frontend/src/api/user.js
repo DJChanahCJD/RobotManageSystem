@@ -30,3 +30,10 @@ export function deleteUser (id) {
     method: 'delete'
   })
 }
+
+export function getUserInfo () {
+  return request({
+    url: '/user/info',
+    method: 'get'
+  })
+}

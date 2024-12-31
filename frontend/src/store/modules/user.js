@@ -55,6 +55,7 @@ const user = {
         // 请求后端获取用户信息 /api/user/info
         getInfo().then(response => {
           const { result } = response
+          console.log('result from getInfo', result)
           if (result.role && result.role.permissions.length > 0) {
             const role = { ...result.role }
             role.permissions = result.role.permissions.map(permission => {
@@ -78,6 +79,7 @@ const user = {
             reject(new Error('getInfo: roles must be a non-null array !'))
           }
         }).catch(error => {
+          console.log('getInfo error:', error)
           reject(error)
         })
       })
