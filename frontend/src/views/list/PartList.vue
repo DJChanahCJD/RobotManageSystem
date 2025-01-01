@@ -220,7 +220,7 @@ export default {
       }
     },
     async handleDelete (record) {
-      await deletePart(record.id)
+      await deletePart(record.master.id)
       this.$message.success('删除成功')
       this.$refs.table.refresh()
     },
@@ -229,7 +229,7 @@ export default {
         this.confirmLoading = true
 
         if (this.mdl) {
-          await updatePart(this.mdl.id, this.form)
+          await updatePart(this.mdl.master.id, this.form)
           this.$message.success('修改成功')
         } else {
           await createPart(this.form)

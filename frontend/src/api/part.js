@@ -16,10 +16,10 @@ export function createPart (data) {
   })
 }
 
-export function updatePart (id, data) {
+export function updatePart (masterId, data) {
   const { name, description } = data
   return request({
-    url: `/part/${id}`,
+    url: `/part/${masterId}`,
     method: 'put',
     data: {
       name,
