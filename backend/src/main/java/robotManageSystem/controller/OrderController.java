@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -79,7 +80,6 @@ public class OrderController {
     public ResponseEntity<?> findOrders(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String ID,
-            @RequestParam(required = false) String type,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
@@ -89,10 +89,7 @@ public class OrderController {
             if (name != null && !name.trim().isEmpty()) {
                 queryRequestVo.addCondition("name", ConditionType.LIKE, "%" + name + "%");
             }
-            // 根据订单类型查询
-            if (type != null && !type.trim().isEmpty()) {
-                queryRequestVo.addCondition("type", ConditionType.EQUAL, type);
-            }
+
             // 根据订单ID的精确查询
             if (ID != null && !ID.trim().isEmpty()) {
                 try {
@@ -117,6 +114,32 @@ public class OrderController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(BaseResponse.error("获取订单列表失败：" + e.getMessage()));
+        }
+    }
+
+    //按类型获取订单列表
+    @GetMapping("/by-type/{type}")
+    public ResponseEntity<?> findOrdersByType(
+            @PathVariable String type,
+            @RequestParam(defaultValue = "1") int pageNo,
+            @RequestParam(defaultValue = "10") int pageSize) {
+        try {
+            QueryRequestVo queryRequestVo = new QueryRequestVo();
+            queryRequestVo.addCondition("type", ConditionType.EQUAL, type);
+
+            List<OrderViewDTO> orders = orderDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
+            long totalCount = orderDelegator.count(queryRequestVo);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("pageSize", pageSize);
+            result.put("pageNo", pageNo);
+            result.put("totalCount", totalCount);
+            result.put("data", orders);
+
+            return ResponseEntity.ok(BaseResponse.ok(result));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(BaseResponse.error("按类型获取订单列表失败：" + e.getMessage()));
         }
     }
 
