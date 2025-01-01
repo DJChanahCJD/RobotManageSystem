@@ -24,7 +24,7 @@ public class XDMFileService {
         uploadFileModelVO.setUsername("hid_c7i7kks2hw1e4le");
         uploadFileModelVO.setStorageType(0);
         uploadFileModelVO.setExaAttr("0");
-        uploadFileModelVO.setInstanceId(customFile.getId());
+        // uploadFileModelVO.setInstanceId(customFile.getId());
         uploadFileModelVO.setEncrypted(false);
         uploadFileModelVO.setAutoResolution(true);
         // 设置文件数组

@@ -1,5 +1,6 @@
 package robotManageSystem.controller;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.huawei.innovation.rdm.bean.entity.XDMFileModel;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
 import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
@@ -53,9 +55,17 @@ public class DesignBlueprintController {
     private FileDelegatorService fileDelegatorService;
 
     @PostMapping("/create")
-    public ResponseEntity<?> createBlueprint(@RequestBody DesignBlueprintCreateDTO createDTO) {
+    public ResponseEntity<?> createBlueprint(@RequestBody Map<String, String> createData) {
+        System.out.println("开始创建设计蓝图: " + createData);
         try {
-            System.out.println("开始创建设计蓝图: " + createDTO);
+            DesignBlueprintCreateDTO createDTO = new DesignBlueprintCreateDTO();
+            createDTO.setBlueprintDescription(createData.get("blueprintDescription"));
+            String fileId = createData.get("fileId");
+            if (fileId != null && !fileId.isEmpty()) {
+                XDMFileModel fileModel = new XDMFileModel();
+                fileModel.setId(Long.parseLong(fileId));
+                createDTO.setBluePrint(Collections.singletonList(fileModel));
+            }
             Object result = designBlueprintDelegator.create(createDTO);
             return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (RDMCoreSDKException e) {
@@ -65,27 +75,17 @@ public class DesignBlueprintController {
     }
 
     // 上传蓝图文件
-    @PostMapping("/{id}/upload")
+    @PostMapping("/upload")
     public ResponseEntity<?> uploadBlueprintFile(
-            @PathVariable Long id,
             @RequestParam("bluePrint") MultipartFile file
     ) {
-        System.out.println("开始上传蓝图文件: " + id + " " + file.getOriginalFilename());
+        System.out.println("开始上传蓝图文件: " + file.getOriginalFilename());
         try {
-            // 1. 验证蓝图是否存在
-            PersistObjectIdDecryptDTO queryDto = new PersistObjectIdDecryptDTO();
-            queryDto.setId(id);
-            DesignBlueprintViewDTO blueprint = designBlueprintDelegator.get(queryDto);
-
-            if (blueprint == null) {
-                return ResponseEntity.notFound().build();
-            }
-
-            // 2. 构造自定义文件对象
             CustomFile customFile = new CustomFile();
-            customFile.setId(String.valueOf(id));
             customFile.setFile(file);
+            // customFile.setId(String.valueOf(file.getOriginalFilename()));
 
+            System.out.println("customFile: " + customFile);
             // 3. 上传文件
             RDMResultVO result = xdmFileService.uploadFile(customFile);
             System.out.println("result from uploadFile: " + result);
@@ -182,6 +182,8 @@ public class DesignBlueprintController {
                 }
             }
 
+            queryRequestVo.setOrderBy("createTime");  // 设置排序字段
+            queryRequestVo.setSort("DESC");           // 设置排序方向
             List<DesignBlueprintViewDTO> blueprints = designBlueprintDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
             long totalCount = designBlueprintDelegator.count(queryRequestVo);
 
@@ -199,9 +201,20 @@ public class DesignBlueprintController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateBlueprint(@PathVariable Long id, @RequestBody DesignBlueprintUpdateDTO updateDTO) {
-        System.out.println("开始更新设计蓝图: " + updateDTO);
+    public ResponseEntity<?> updateBlueprint(@PathVariable Long id, @RequestBody Map<String, String> updateData) {
         try {
+            DesignBlueprintUpdateDTO updateDTO = new DesignBlueprintUpdateDTO();
+            updateDTO.setId(id);
+            updateDTO.setBlueprintDescription(updateData.get("blueprintDescription"));
+
+            String fileId = updateData.get("fileId");
+            System.out.println("fileId: " + fileId);
+            if (fileId != null && !fileId.isEmpty()) {
+                XDMFileModel fileModel = new XDMFileModel();
+                fileModel.setId(Long.parseLong(fileId));
+                updateDTO.setBluePrint(Collections.singletonList(fileModel));
+            }
+            System.out.println("updateDTO from updateBlueprint: " + updateDTO);
             DesignBlueprintViewDTO result = designBlueprintDelegator.update(updateDTO);
             return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
@@ -210,17 +223,29 @@ public class DesignBlueprintController {
         }
     }
 
-    @GetMapping("/download/{id}")
-    public ResponseEntity<?> downloadBlueprint(@PathVariable Long id) {
+    @GetMapping("/download/{fileId}/{blueprintId}")
+    public void downloadBlueprint(
+            @PathVariable String fileId,
+            @PathVariable String blueprintId,
+            HttpServletResponse response) {
         try {
-            // TODO: 实现文件下载逻辑
-            // 返回文件流
-            return ResponseEntity.ok()
-                .header("Content-Disposition", "attachment; filename=blueprint.pdf")
-                .body(null/* 文件流对象 */);
+            // 调用 FileDelegatorService 的 downloadFile 方法
+            fileDelegatorService.downloadFile(
+                fileId,                  // fileIds - 文件ID
+                "DesignBlueprint",       // modelName
+                "BluePrint",             // attributeName
+                blueprintId,             // instanceId - 蓝图实体ID
+                "1dd2dce363cc4e5fbe951a171a91b825", // applicationId
+                "0",                     // isMasterAttr
+                response                 // HttpServletResponse
+            );
         } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(BaseResponse.error("下载蓝图文件失败：" + e.getMessage()));
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            try {
+                response.getWriter().write("下载蓝图文件失败：" + e.getMessage());
+            } catch (IOException ex) {
+                System.out.println("写入错误响应失败");
+            }
         }
     }
 

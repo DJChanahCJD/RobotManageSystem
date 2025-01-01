@@ -44,24 +44,19 @@
         :rowSelection="rowSelection"
         showPagination="auto"
       >
-        <template slot="bluePrintImage" slot-scope="text, record">
-          <img
-            v-if="record.bluePrint"
-            :src="record.bluePrint"
-            style="max-width: 100px; max-height: 100px; object-fit: contain"
-            @click="handlePreview(record)"
-          />
-          <span v-else>暂无图片</span>
+        <template slot="bluePrint" slot-scope="text, record">
+          <template v-if="record.bluePrint && record.bluePrint.length">
+            <a @click="handleDownload(record.bluePrint[0], record.id)">
+              {{ record.bluePrint[0].name }}
+            </a>
+          </template>
+          <template v-else>
+            暂无文件
+          </template>
         </template>
         <template slot="action" slot-scope="text, record">
           <a-space>
             <a @click="handleDetail(record)">查看</a>
-            <a-upload
-              :showUploadList="false"
-              :beforeUpload="file => handleUpload(file, record)"
-            >
-              <a>上传</a>
-            </a-upload>
             <a @click="handleEdit(record)">修改</a>
             <a-popconfirm
               title="确定删除吗？"
@@ -92,6 +87,26 @@
               :rows="4"
               placeholder="请输入蓝图说明"
             />
+          </a-form-item>
+
+          <a-form-item label="蓝图文件">
+            <a-upload
+              :fileList="fileList"
+              :beforeUpload="handleUpload"
+              :showUploadList="true"
+              :maxCount="1"
+              @preview="handlePreview"
+              @change="handleFileListChange"
+              :customRequest="() => {}"
+              action=""
+            >
+              <a-button>
+                <a-icon type="upload" /> 选择文件
+              </a-button>
+              <div slot="tip" class="ant-upload-tip">
+                只能上传图片文件，且不超过5MB
+              </div>
+            </a-upload>
           </a-form-item>
         </a-form>
       </a-modal>
@@ -151,7 +166,8 @@ import {
   updateBlueprint,
   deleteBlueprint,
   getBlueprintDetail,
-  uploadBlueprint
+  uploadBlueprint,
+  downloadBlueprint
 } from '@/api/blueprint'
 import {
   Form,
@@ -171,7 +187,7 @@ const columns = [
   {
     title: '预览图',
     dataIndex: 'bluePrint',
-    scopedSlots: { customRender: 'bluePrintImage' },
+    scopedSlots: { customRender: 'bluePrint' },
     width: 120
   },
   {
@@ -185,7 +201,6 @@ const columns = [
   {
     title: '创建时间',
     dataIndex: 'createTime',
-    sorter: true,
     customRender: (text) => {
       return new Date(text).toLocaleString()
     }
@@ -261,7 +276,9 @@ export default {
       detailData: null,
       detailLoading: false,
       previewVisible: false,
-      previewImage: ''
+      previewImage: '',
+      fileId: undefined,
+      fileList: []
     }
   },
   computed: {
@@ -280,15 +297,31 @@ export default {
         blueprintDescription: '',
         bluePrint: undefined
       }
+      this.fileList = []
+      this.fileId = undefined
       this.visible = true
     },
     handleEdit (record) {
       this.mdl = { ...record }
       this.form = {
-        id: record.id,
         blueprintDescription: record.blueprintDescription
-        // bluePrint: record.bluePrint
       }
+
+      // 处理蓝图文件
+      if (record.bluePrint && record.bluePrint.length > 0) {
+        const fileInfo = record.bluePrint[0] // 获取第一个文件
+        this.fileList = [{
+          uid: fileInfo.id,
+          name: fileInfo.name,
+          status: 'done',
+          url: `/blueprint/download/${fileInfo.id}`
+        }]
+        this.fileId = fileInfo.id
+      } else {
+        this.fileList = []
+        this.fileId = undefined
+      }
+
       this.visible = true
     },
     async handleDetail (record) {
@@ -314,24 +347,6 @@ export default {
       this.selectedRowKeys = []
       this.$refs.table.refresh()
     },
-    beforeUpload (file) {
-      const isImage = file.type.startsWith('image/')
-      if (!isImage) {
-        this.$message.error('只能上传图片格式的蓝图文件!')
-        return false
-      }
-      const isLt5M = file.size / 1024 / 1024 < 5
-      if (!isLt5M) {
-        this.$message.error('蓝图文件必须小于5MB!')
-        return false
-      }
-      return false // 阻止自动上传
-    },
-    handleFileChange (info) {
-      if (info.file.status !== 'uploading') {
-        this.form.bluePrint = info.file
-      }
-    },
     async handleOk () {
       try {
         if (!this.form.blueprintDescription) {
@@ -340,11 +355,13 @@ export default {
         }
 
         this.confirmLoading = true
-
-        // 统一使用 JSON 格式，只更新说明
         const updateData = {
-          id: this.mdl.id,
           blueprintDescription: this.form.blueprintDescription
+        }
+
+        // 如果有文件ID，添加到更新数据中
+        if (this.fileId) {
+          updateData.fileId = this.fileId
         }
 
         if (this.mdl) {
@@ -390,18 +407,81 @@ export default {
         this.previewVisible = true
       }
     },
-    async handleUpload (file, record) {
-      this.$message.info('上传中...')
+    async handleUpload (file) {
+      const isImage = file.type.startsWith('image/')
+      if (!isImage) {
+        this.$message.error('只能上传图片格式的蓝图文件!')
+        return false
+      }
+
+      const isLt5M = file.size / 1024 / 1024 < 5
+      if (!isLt5M) {
+        this.$message.error('蓝图文件必须小于5MB!')
+        return false
+      }
+
+      this.$message.info('开始上传蓝图文件: ' + file.name)
       try {
         const formData = new FormData()
         formData.append('bluePrint', file)
-        await uploadBlueprint(record.id, formData)
-        this.$message.success('上传成功')
-        this.$refs.table.refresh()
+
+        // 直接使用上传API
+        const response = await uploadBlueprint(formData)
+
+        // 保存文件ID，这个ID会在提交表单时使用
+        this.fileId = response.result.data[0]
+
+        this.$message.info('文件上传成功: ' + this.fileId)
+
+        // 更新文件列表显示
+        this.fileList = [{
+          uid: file.uid,
+          name: file.name,
+          status: 'done',
+          url: URL.createObjectURL(file)
+        }]
+
+        this.$message.success('文件上传成功')
       } catch (error) {
         this.$message.error('上传失败：' + (error.message || '未知错误'))
       }
-      return false // 阻止自动上传
+      return false
+    },
+    handleFileListChange ({ fileList }) {
+      this.fileList = fileList.map(file => ({
+        ...file,
+        status: file.status,
+        // 对于新上传的文件，使用本地预览URL
+        url: file.url || (file.originFileObj ? URL.createObjectURL(file.originFileObj) : undefined)
+      }))
+    },
+    async handleDownload (fileInfo, blueprintId) {
+      try {
+        this.$message.loading('文件下载中...')
+        const response = await downloadBlueprint(fileInfo.id, blueprintId)
+
+        // 创建 Blob 对象
+        const blob = new Blob([response], { type: response.type })
+
+        // 创建下载链接
+        const link = document.createElement('a')
+        link.href = window.URL.createObjectURL(blob)
+
+        // 设置文件名
+        link.download = fileInfo.name || 'blueprint.png'
+
+        // 触发下载
+        document.body.appendChild(link)
+        link.click()
+
+        // 清理
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(link.href)
+
+        this.$message.success('下载成功')
+      } catch (error) {
+        this.$message.error('下载失败：' + (error.message || '未知错误'))
+      }
     }
   }
 }
