@@ -20,12 +20,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
+import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.ProductDelegator;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.ProductCreateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.ProductUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.ProductViewDTO;
+import robotManageSystem.dto.BaseResponse;
 
 @RestController
 @RequestMapping("/api/products")
@@ -39,12 +41,11 @@ public class ProductController {
         try {
             System.out.println("开始创建产品: " + createDTO);
             Object result = productDelegator.create(createDTO);
-            System.out.println("创建结果: " + result);
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
             System.out.println("创建产品失败: " + e.getMessage());
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "创建产品失败：" + e.getMessage()));
+                    .body(BaseResponse.error("创建产品失败：" + e.getMessage()));
         }
     }
 
@@ -54,10 +55,10 @@ public class ProductController {
             PersistObjectIdModifierDTO idDTO = new PersistObjectIdModifierDTO();
             idDTO.setId(id);
             productDelegator.delete(idDTO);
-            return ResponseEntity.ok(Collections.singletonMap("message", "产品删除成功"));
+            return ResponseEntity.ok(BaseResponse.ok(Collections.singletonMap("message", "产品删除成功")));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "删除产品失败：" + e.getMessage()));
+                    .body(BaseResponse.error("删除产品失败：" + e.getMessage()));
         }
     }
 
@@ -67,23 +68,35 @@ public class ProductController {
             PersistObjectIdDecryptDTO idDTO = new PersistObjectIdDecryptDTO();
             idDTO.setId(id);
             ProductViewDTO product = productDelegator.get(idDTO);
-            return ResponseEntity.ok(product);
+            return ResponseEntity.ok(BaseResponse.ok(product));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "获取产品失败：" + e.getMessage()));
+                    .body(BaseResponse.error("获取产品失败：" + e.getMessage()));
         }
     }
 
     @GetMapping("/list")
     public ResponseEntity<?> findProducts(
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String ID,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
             QueryRequestVo queryRequestVo = new QueryRequestVo();
-            if (keyword != null && !keyword.trim().isEmpty()) {
-                // 可以根据产品名称、部件名称等进行搜索
-                // queryRequestVo.setCondition(...);
+
+            // 根据产品名称模糊搜索
+            if (name != null && !name.trim().isEmpty()) {
+                queryRequestVo.addCondition("productName", ConditionType.LIKE, "%" + name + "%");
+            }
+            // 根据产品ID精确查询
+            if (ID != null && !ID.trim().isEmpty()) {
+                try {
+                    Long idValue = Long.parseLong(ID.trim());
+                    queryRequestVo.addCondition("id", ConditionType.EQUAL, idValue);
+                } catch (NumberFormatException e) {
+                    return ResponseEntity.badRequest()
+                            .body(BaseResponse.error("ID必须是数字"));
+                }
             }
 
             List<ProductViewDTO> products = productDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
@@ -95,10 +108,10 @@ public class ProductController {
             result.put("totalCount", totalCount);
             result.put("data", products);
 
-            return ResponseEntity.ok(Collections.singletonMap("result", result));
+            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "获取产品列表失败：" + e.getMessage()));
+                    .body(BaseResponse.error("获取产品列表失败：" + e.getMessage()));
         }
     }
 
@@ -106,10 +119,10 @@ public class ProductController {
     public ResponseEntity<?> updateProduct(@PathVariable Long id, @RequestBody ProductUpdateDTO updateDTO) {
         try {
             ProductViewDTO result = productDelegator.update(updateDTO);
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "更新产品失败：" + e.getMessage()));
+                    .body(BaseResponse.error("更新产品失败：" + e.getMessage()));
         }
     }
 
@@ -117,10 +130,10 @@ public class ProductController {
     public ResponseEntity<?> countProducts() {
         try {
             long count = productDelegator.count(new QueryRequestVo());
-            return ResponseEntity.ok(Collections.singletonMap("count", count));
+            return ResponseEntity.ok(BaseResponse.ok(Collections.singletonMap("count", count)));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "获取产品数量失败：" + e.getMessage()));
+                    .body(BaseResponse.error("获取产品数量失败：" + e.getMessage()));
         }
     }
 
@@ -131,8 +144,7 @@ public class ProductController {
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
             QueryRequestVo queryRequestVo = new QueryRequestVo();
-            // 设置产品阶段查询条件
-            // queryRequestVo.setCondition("ProductStage", stage);
+            queryRequestVo.addCondition("productStage", ConditionType.EQUAL, stage);
 
             List<ProductViewDTO> products = productDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
             long totalCount = productDelegator.count(queryRequestVo);
@@ -143,10 +155,10 @@ public class ProductController {
             result.put("totalCount", totalCount);
             result.put("data", products);
 
-            return ResponseEntity.ok(Collections.singletonMap("result", result));
+            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "按阶段获取产品列表失败：" + e.getMessage()));
+                    .body(BaseResponse.error("按阶段获取产品列表失败：" + e.getMessage()));
         }
     }
 }
