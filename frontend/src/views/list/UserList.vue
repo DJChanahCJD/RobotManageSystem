@@ -18,8 +18,8 @@
             <a-col :md="6" :sm="24">
               <a-form-item label="权限">
                 <a-select v-model="queryParam.authority" placeholder="请选择权限" allowClear>
-                  <a-select-option value="admin">管理员</a-select-option>
-                  <a-select-option value="user">普通用户</a-select-option>
+                  <a-select-option value="Admin">管理员</a-select-option>
+                  <a-select-option value="Normal">普通用户</a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -54,8 +54,8 @@
         :alert="false"
       >
         <template slot="authority" slot-scope="text">
-          <a-tag :color="text === 'admin' ? 'red' : 'blue'">
-            {{ text === 'admin' ? '管理员' : '普通用户' }}
+          <a-tag :color="text === 'Admin' ? 'orange' : 'blue'">
+            {{ text === 'Admin' ? '管理员' : '用户' }}
           </a-tag>
         </template>
         <span slot="action" slot-scope="text, record">
@@ -96,8 +96,12 @@
           <a-form-model-item label="权限" prop="authority">
             <div>权限</div>
             <a-select v-model="form.authority" placeholder="请选择权限">
-              <a-select-option value="admin">管理员</a-select-option>
-              <a-select-option value="user">普通用户</a-select-option>
+              <a-select-option
+                v-for="opt in authorityOptions"
+                :key="opt.value"
+                :value="opt.value">
+                {{ opt.label }}
+              </a-select-option>
             </a-select>
           </a-form-model-item>
           <a-form-model-item
@@ -138,8 +142,11 @@ const columns = [
   },
   {
     title: '创建时间',
-    dataIndex: 'createTime',
-    sorter: true
+    dataIndex: 'createTime'
+  },
+  {
+    title: '更新时间',
+    dataIndex: 'lastUpdateTime'
   },
   {
     title: '操作',
@@ -160,7 +167,12 @@ export default {
       visible: false,
       confirmLoading: false,
       mdl: null,
-      form: this.getEmptyForm(),
+      form: {
+        name: '',
+        phone: '',
+        authority: 'Normal',
+        password: ''
+      },
       rules: {
         name: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
         phone: [
@@ -170,7 +182,11 @@ export default {
         authority: [{ required: true, message: '请选择权限', trigger: 'change' }],
         password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
       },
-      queryParam: {},
+      queryParam: {
+        name: '',
+        phone: '',
+        authority: ''
+      },
       loadData: parameter => {
         console.log('loadData parameter:', parameter)
         return getUserList(Object.assign(parameter, this.queryParam))
@@ -183,7 +199,11 @@ export default {
               data: res.result.data || []
             }
           })
-      }
+      },
+      authorityOptions: [
+        { label: '普通用户', value: 'Normal' },
+        { label: '管理员', value: 'Admin' }
+      ]
     }
   },
   methods: {
@@ -191,7 +211,7 @@ export default {
       return {
         name: '',
         phone: '',
-        authority: 'user',
+        authority: 'Normal',
         password: ''
       }
     },
@@ -215,13 +235,12 @@ export default {
     },
     async handleOk () {
       try {
-        await this.$refs.form.validate()
         this.confirmLoading = true
 
         if (this.mdl) {
           const data = { ...this.form }
           delete data.password // 编辑时不提交密码
-          await updateUser(data)
+          await updateUser(this.mdl.id, data)
           this.$message.success('修改成功')
         } else {
           await createUser(this.form)

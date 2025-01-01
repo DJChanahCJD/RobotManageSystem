@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdsModifierDTO;
+import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
+import com.huawei.innovation.rdm.coresdk.basic.vo.QueryCondition;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.UserDelegator;
@@ -32,7 +34,18 @@ import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserUpda
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserViewDTO;
 
 import robotManageSystem.dto.BaseResponse;
+import robotManageSystem.dto.PageResultDTO;
 import robotManageSystem.utils.JwtUtil;
+import robotManageSystem.enums.Authority;
+
+/*
+ * User实体
+ * Name: 用户名
+ * Password: 密码
+ * Authority: 权限（必填）
+ * Phone: 电话
+ */
+
 @RestController
 @RequestMapping("/api/user")
 @CrossOrigin(origins = "*")
@@ -49,11 +62,11 @@ public class UserController {
             System.out.println("开始创建用户: " + createDTO);
             Object result = userDelegator.create(createDTO);
             System.out.println("创建结果: " + result);
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
             System.out.println("创建用户失败: " + e.getMessage());
             return ResponseEntity.internalServerError()
-                .body(e.getMessage());
+                .body(BaseResponse.error("创建用户失败: " + e.getMessage()));
         }
     }
 
@@ -99,38 +112,55 @@ public class UserController {
             PersistObjectIdDecryptDTO idDTO = new PersistObjectIdDecryptDTO();
             idDTO.setId(id);
             UserViewDTO user = userDelegator.get(idDTO);
-            return ResponseEntity.ok(user);
+            return ResponseEntity.ok(BaseResponse.ok(user));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body("获取用户失败: " + e.getMessage());
+                .body(BaseResponse.error("获取用户失败: " + e.getMessage()));
         }
     }
 
     @GetMapping("/list")
     public ResponseEntity<?> findUsers(
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Authority authority,
+            @RequestParam(required = false) String phone,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
-            QueryRequestVo queryRequestVo = new QueryRequestVo();
-            if (keyword != null && !keyword.trim().isEmpty()) {
-                // 根据具体需求设置搜索条件
-                // queryRequestVo.setCondition(...);
+            QueryRequestVo queryRequestVo = QueryRequestVo.build();
+
+            // 使用 and() 方法开始构建条件
+            QueryCondition condition = queryRequestVo.and();
+
+            // 添加查询条件
+            if (name != null && !name.trim().isEmpty()) {
+                condition.addCondition("name", ConditionType.LIKE, name);
             }
+
+            if (authority != null) {
+                condition.addCondition("authority", ConditionType.EQUAL, authority.toString());
+            }
+
+            if (phone != null && !phone.trim().isEmpty()) {
+                condition.addCondition("phone", ConditionType.LIKE, phone);
+            }
+
+            // 设置排序
+            queryRequestVo.setOrderBy("createTime")
+                         .setSort("DESC");
 
             List<UserViewDTO> users = userDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
             long totalCount = userDelegator.count(queryRequestVo);
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("pageSize", pageSize);
-            result.put("pageNo", pageNo);
-            result.put("totalCount", totalCount);
-            result.put("data", users);
-
-            return ResponseEntity.ok(Collections.singletonMap("result", result));
+            return ResponseEntity.ok(BaseResponse.ok(PageResultDTO.of(
+                pageNo,
+                pageSize,
+                totalCount,
+                users
+            )));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body("获取用户列表失败: " + e.getMessage());
+                .body(BaseResponse.error("获取用户列表失败: " + e.getMessage()));
         }
     }
 
@@ -154,16 +184,19 @@ public class UserController {
                     .body(Collections.singletonMap("message", "token无效"));
             }
 
+            QueryRequestVo queryRequestVo = new QueryRequestVo();
+            queryRequestVo.addCondition("id", ConditionType.EQUAL, userId);
+            UserViewDTO user = userDelegator.find(queryRequestVo, new RDMPageVO(1, 1)).get(0);
+
             // 构造与 mock 数据相同的返回格式
             Map<String, Object> role = new HashMap<>();
-            role.put("id", "admin");
-            role.put("name", "管理员");
-            role.put("describe", "拥有所有权限");
-            role.put("permissions", getSimplePermissions());
+            role.put("id", userId);
+            role.put("name", user.getName());
+            role.put("permissions", user.getAuthority());
 
             Map<String, Object> result = new HashMap<>();
             result.put("role", role);
-            result.put("name", "Admin");
+            result.put("name", user.getName());
             result.put("avatar", "https://gw.alipayobjects.com/zos/rmsportal/jZUIxmJycoymBprLOUbT.png");
 
             return ResponseEntity.ok(Collections.singletonMap("result", result));
@@ -171,17 +204,5 @@ public class UserController {
             return ResponseEntity.internalServerError()
                 .body(Collections.singletonMap("message", "获取用户信息失败：" + e.getMessage()));
         }
-    }
-
-    private List<Map<String, Object>> getSimplePermissions() {
-        List<Map<String, Object>> permissions = new ArrayList<>();
-
-        Map<String, Object> permission = new HashMap<>();
-        permission.put("permissionId", "admin");
-        permission.put("permissionName", "仪表盘");
-        permission.put("actions", Arrays.asList("add", "query", "update", "delete"));
-
-        permissions.add(permission);
-        return permissions;
     }
 }

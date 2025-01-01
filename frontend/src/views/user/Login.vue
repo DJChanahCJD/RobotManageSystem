@@ -22,7 +22,7 @@
           :placeholder="$t('user.login.username.placeholder')"
           v-decorator="[
             'username',
-            {rules: [{ required: true, message: $t('user.userName.required') }, { validator: handleUsernameOrEmail }], validateTrigger: 'change'}
+            {rules: [{ required: true, message: $t('user.userName.required') }], validateTrigger: 'change'}
           ]"
         >
           <a-icon slot="prefix" type="user" :style="{ color: 'rgba(0,0,0,.25)' }"/>
@@ -57,36 +57,21 @@
 </template>
 
 <script>
-import md5 from 'md5'
 import { mapActions } from 'vuex'
 import { timeFix } from '@/utils/util'
 
 export default {
   data () {
     return {
-      loginBtn: false,
-      // login type: 0 email, 1 username
-      loginType: 0,
-      isLoginError: false,
       form: this.$form.createForm(this),
       state: {
-        loginBtn: false,
-        loginType: 0
-      }
+        loginBtn: false
+      },
+      isLoginError: false
     }
   },
   methods: {
     ...mapActions(['Login', 'Logout']),
-    handleUsernameOrEmail (rule, value, callback) {
-      const { state } = this
-      const regex = /^([a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+((\.[a-zA-Z0-9_-]{2,3}){1,2})$/
-      if (regex.test(value)) {
-        state.loginType = 0
-      } else {
-        state.loginType = 1
-      }
-      callback()
-    },
     handleSubmit (e) {
       e.preventDefault()
       const {
@@ -99,11 +84,10 @@ export default {
 
       validateFields(['username', 'password'], { force: true }, (err, values) => {
         if (!err) {
-          const loginParams = { ...values }
-          delete loginParams.username
-          loginParams[!state.loginType ? 'email' : 'username'] = values.username
-          loginParams.password = md5(values.password)
-          Login(loginParams)
+          Login({
+            username: values.username,
+            password: values.password
+          })
             .then((res) => this.loginSuccess(res))
             .catch(err => this.requestFailed(err))
             .finally(() => {

@@ -1,10 +1,17 @@
 import request from '@/utils/request'
 
 export function getUserList (parameter) {
+  const { name, phone, authority, pageNo, pageSize } = parameter
   return request({
     url: '/user/list',
     method: 'get',
-    params: parameter
+    params: {
+      name,
+      phone,
+      authority,
+      pageNo: pageNo || 1,
+      pageSize: pageSize || 10
+    }
   })
 }
 
@@ -16,18 +23,25 @@ export function createUser (data) {
   })
 }
 
-export function updateUser (data) {
+export function updateUser (id, data) {
   return request({
-    url: '/user/update',
-    method: 'post',
+    url: `/user/${id}`,
+    method: 'put',
     data: data
   })
 }
 
 export function deleteUser (id) {
   return request({
-    url: `/user/delete/${id}`,
+    url: `/user/${id}`,
     method: 'delete'
+  })
+}
+
+export function getUser (id) {
+  return request({
+    url: `/user/${id}`,
+    method: 'get'
   })
 }
 

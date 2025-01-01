@@ -44,6 +44,7 @@ const user = {
           commit('SET_TOKEN', result.token)
           resolve()
         }).catch(error => {
+          console.log('login error:', error)
           reject(error)
         })
       })

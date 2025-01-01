@@ -28,6 +28,7 @@ import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
 import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
 import com.huawei.innovation.rdm.coresdk.basic.exception.RDMCoreSDKException;
+import com.huawei.innovation.rdm.coresdk.basic.vo.QueryCondition;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMResultVO;
@@ -39,6 +40,7 @@ import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBl
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.DesignBlueprintViewDTO;
 
 import robotManageSystem.dto.BaseResponse;
+import robotManageSystem.dto.PageResultDTO;
 import robotManageSystem.model.CustomFile;
 import robotManageSystem.service.XDMFileService;
 @RestController
@@ -164,36 +166,38 @@ public class DesignBlueprintController {
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
-            QueryRequestVo queryRequestVo = new QueryRequestVo();
+            QueryRequestVo queryRequestVo = QueryRequestVo.build();
+
+            // 使用 and() 方法开始构建条件
+            QueryCondition condition = queryRequestVo.and();
 
             // 处理描述的模糊查询
             if (BlueprintDescription != null && !BlueprintDescription.trim().isEmpty()) {
-                queryRequestVo.addCondition("blueprintDescription", ConditionType.LIKE, BlueprintDescription);
+                condition.addCondition("blueprintDescription", ConditionType.LIKE, BlueprintDescription);
             }
 
             // 处理ID的精确查询
             if (ID != null && !ID.trim().isEmpty()) {
                 try {
                     Long idValue = Long.parseLong(ID.trim());
-                    queryRequestVo.addCondition("id", ConditionType.EQUAL, idValue);  // 使用 EQUAL 而不是 LIKE
+                    condition.addCondition("id", ConditionType.EQUAL, idValue);  // 使用 EQUAL 而不是 LIKE
                 } catch (NumberFormatException e) {
                     return ResponseEntity.badRequest()
                         .body(BaseResponse.error("ID必须是数字"));
                 }
             }
 
-            queryRequestVo.setOrderBy("createTime");  // 设置排序字段
-            queryRequestVo.setSort("DESC");           // 设置排序方向
+            queryRequestVo.setOrderBy("createTime").setSort("DESC");
+
             List<DesignBlueprintViewDTO> blueprints = designBlueprintDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
             long totalCount = designBlueprintDelegator.count(queryRequestVo);
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("pageSize", pageSize);
-            result.put("pageNo", pageNo);
-            result.put("totalCount", totalCount);
-            result.put("data", blueprints);
-
-            return ResponseEntity.ok(BaseResponse.ok(result));
+            return ResponseEntity.ok(BaseResponse.ok(PageResultDTO.of(
+                pageNo,
+                pageSize,
+                totalCount,
+                blueprints
+            )));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                 .body(BaseResponse.error("获取设计蓝图列表失败：" + e.getMessage()));
@@ -246,42 +250,6 @@ public class DesignBlueprintController {
             } catch (IOException ex) {
                 System.out.println("写入错误响应失败");
             }
-        }
-    }
-
-    @GetMapping("/count")
-    public ResponseEntity<?> countBlueprints() {
-        try {
-            long count = designBlueprintDelegator.count(new QueryRequestVo());
-            return ResponseEntity.ok(BaseResponse.ok(Collections.singletonMap("count", count)));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(BaseResponse.error("获取设计蓝图数量失败：" + e.getMessage()));
-        }
-    }
-
-    @GetMapping("/image/{fileId}")
-    public void getImage(
-            @PathVariable String fileId,
-            @RequestParam String instanceId,
-            HttpServletResponse response
-    ) {
-        try {
-            // 设置响应类型
-            response.setContentType("image/png");  // 根据实际图片类型设置
-
-            // 调用下载
-            fileDelegatorService.downloadFile(
-                fileId,
-                "DesignBlueprint",
-                "BluePrint",
-                instanceId,
-                "1dd2dce363cc4e5fbe951a171a91b825",
-                "0",
-                response
-            );
-        } catch (Exception e) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 }
