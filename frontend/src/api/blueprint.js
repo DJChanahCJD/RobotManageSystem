@@ -20,7 +20,10 @@ export function createBlueprint (data) {
     headers: {
       'Content-Type': 'application/json'
     },
-    data: data
+    data: {
+      blueprintDescription: data.blueprintDescription,
+      fileId: data.fileId
+    }
   })
 }
 
@@ -31,7 +34,10 @@ export function updateBlueprint (id, data) {
     headers: {
       'Content-Type': 'application/json'
     },
-    data: data
+    data: {
+      blueprintDescription: data.blueprintDescription,
+      fileId: data.fileId
+    }
   })
 }
 
@@ -49,13 +55,21 @@ export function getBlueprintDetail (id) {
   })
 }
 
-export function uploadBlueprint (id, formData) {
+export function uploadBlueprint (formData) {
   return request({
-    url: `/blueprint/${id}/upload`,
+    url: `/blueprint/upload`,
     method: 'post',
     headers: {
       'Content-Type': 'multipart/form-data'
     },
     data: formData
+  })
+}
+
+export function downloadBlueprint (fileId, blueprintId) {
+  return request({
+    url: `/blueprint/download/${fileId}/${blueprintId}`,
+    method: 'get',
+    responseType: 'blob'
   })
 }
