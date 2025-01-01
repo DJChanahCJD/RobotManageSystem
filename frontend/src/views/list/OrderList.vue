@@ -18,8 +18,12 @@
             <a-col :md="6" :sm="24">
               <a-form-item label="类型">
                 <a-select v-model="queryParam.type" placeholder="请选择类型" allowClear>
-                  <a-select-option value="1">制造</a-select-option>
-                  <a-select-option value="2">采购</a-select-option>
+                  <a-select-option
+                    v-for="(type, index) in sourceTypes"
+                    :key="index"
+                    :value="type.value">
+                    {{ type.label }}
+                  </a-select-option>
                 </a-select>
               </a-form-item>
             </a-col>
@@ -50,6 +54,9 @@
         <span slot="orderDate" slot-scope="text">
           {{ text | moment('YYYY-MM-DD') }}
         </span>
+        <span slot="type" slot-scope="text">
+          <a-badge :status="getTypeStatus(text)" :text="getTypeText(text)" />
+        </span>
         <span slot="action" slot-scope="text, record">
           <a @click="handleEdit(record)">修改</a>
           <a-divider type="vertical" />
@@ -59,7 +66,7 @@
             title="确定要删除这条订单吗？"
             @confirm="() => handleDelete(record)"
           >
-            <a>删除</a>
+            <a style="color: red;">删除</a>
           </a-popconfirm>
         </span>
       </s-table>
@@ -87,9 +94,14 @@
           </a-form-model-item>
           <a-form-model-item label="类型" prop="type">
             <div>类型</div>
-            <a-select v-model="form.type" placeholder="请选择类型" style="width: 100%">
-              <a-select-option value="1">制造</a-select-option>
-              <a-select-option value="2">采购</a-select-option>
+            <a-select v-model="form.type" placeholder="请选择类型" style="width: 100%;">
+              <a-select-option
+                v-for="type in sourceTypes"
+                :key="type.value"
+                :value="type.value"
+              >
+                {{ type.label }}
+              </a-select-option>
             </a-select>
           </a-form-model-item>
           <a-form-model-item label="订单日期" prop="orderDate">
@@ -136,6 +148,12 @@ import moment from 'moment'
 import { STable } from '@/components'
 import { getOrderList, createOrder, updateOrder, deleteOrder, getOrderDetail } from '@/api/order'
 
+const sourceTypes = [
+  { value: 'Purchase', label: '采购', status: 'warning' },
+  { value: 'Manufacture', label: '制造', status: 'processing' },
+  { value: 'Sale', label: '销售', status: 'success' }
+]
+
 const columns = [
   {
     title: '订单编号',
@@ -151,7 +169,8 @@ const columns = [
   },
   {
     title: '类型',
-    dataIndex: 'type'
+    dataIndex: 'type',
+    scopedSlots: { customRender: 'type' }
   },
   {
     title: '订单日期',
@@ -187,6 +206,7 @@ export default {
         orderDate: [{ required: true, message: '请选择订单日期', trigger: 'change' }]
       },
       queryParam: {},
+      sourceTypes,
       loadData: parameter => {
         const params = Object.assign(parameter, this.queryParam)
         if (params.dateRange) {
@@ -194,8 +214,18 @@ export default {
           params.endDate = params.dateRange[1].format('YYYY-MM-DD')
           delete params.dateRange
         }
+
         return getOrderList(params).then(res => {
-          return res.result
+          return {
+            data: res.result.data || [],
+            pageSize: res.result.pageSize,
+            pageNo: res.result.pageNo,
+            totalCount: res.result.totalCount,
+            totalPage: res.result.totalPage
+          }
+        }).catch(error => {
+          this.$message.error('获取订单列表失败：' + error.message)
+          return []
         })
       }
     }
@@ -239,7 +269,6 @@ export default {
     },
     async handleOk () {
       try {
-        await this.$refs.form.validate()
         this.confirmLoading = true
 
         const formData = {
@@ -270,7 +299,26 @@ export default {
     handleDetailCancel () {
       this.detailVisible = false
       this.detailData = null
+    },
+    getTypeText (type) {
+      return sourceTypes.find(t => t.value === type)?.label || type
+    },
+    getTypeStatus (type) {
+      return sourceTypes.find(t => t.value === type)?.status || 'default'
+    },
+    handleSearch () {
+      this.$refs.table.refresh(true)
+    },
+    handleReset () {
+      this.queryParam = {}
+      this.$refs.table.refresh(true)
     }
   }
 }
 </script>
+
+<style lang="less" scoped>
+.table-operator {
+  margin-bottom: 18px;
+}
+</style>

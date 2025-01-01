@@ -30,7 +30,7 @@ import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.ProductV
 import robotManageSystem.dto.BaseResponse;
 
 @RestController
-@RequestMapping("/api/products")
+@RequestMapping("/api/product")
 @CrossOrigin(origins = "*")
 public class ProductController {
     @Autowired

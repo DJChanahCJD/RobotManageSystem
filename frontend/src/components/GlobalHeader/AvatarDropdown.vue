@@ -25,7 +25,7 @@
 
 <script>
 import { Modal } from 'ant-design-vue'
-
+import { changePassword } from '@/api/user'
 export default {
   name: 'AvatarDropdown',
   props: {
@@ -40,12 +40,54 @@ export default {
   },
   methods: {
     handleToSettings () {
-      // 修改弹窗
+      let newPassword = ''
       Modal.confirm({
         title: '修改密码',
-        content: '请输入新密码',
+        content: h => {
+          return h('div', [
+            h('div', { style: { marginBottom: '16px' } }, [
+              h('div', { style: { marginBottom: '8px' } }, '当前密码：'),
+              h('a-input', {
+                props: {
+                  value: this.currentUser.password,
+                  disabled: true,
+                  visible: true
+                }
+              })
+            ]),
+            h('div', [
+              h('div', { style: { marginBottom: '8px' } }, '新密码：'),
+              h('a-input-password', {
+                props: {
+                  placeholder: '请输入新密码'
+                },
+                on: {
+                  change: (e) => {
+                    newPassword = e.target.value
+                  }
+                }
+              })
+            ])
+          ])
+        },
         onOk: () => {
-          // 修改密码
+          if (!newPassword) {
+            this.$message.error('请输入新密码')
+            return Promise.reject(new Error('请输入新密码'))
+          }
+          // 调用修改密码API
+          return changePassword({
+            newPassword: newPassword
+          }).then(() => {
+            this.$message.success('密码修改成功，请重新登录')
+            // 修改成功后登出
+            return this.$store.dispatch('Logout').then(() => {
+              this.$router.push({ name: 'login' })
+            })
+          }).catch(err => {
+            this.$message.error(err.message || '密码修改失败')
+            return Promise.reject(new Error('密码修改失败'))
+          })
         }
       })
     },
@@ -54,9 +96,6 @@ export default {
         title: this.$t('layouts.usermenu.dialog.title'),
         content: this.$t('layouts.usermenu.dialog.content'),
         onOk: () => {
-          // return new Promise((resolve, reject) => {
-          //   setTimeout(Math.random() > 0.5 ? resolve : reject, 1500)
-          // }).catch(() => console.log('Oops errors!'))
           return this.$store.dispatch('Logout').then(() => {
             this.$router.push({ name: 'login' })
           })

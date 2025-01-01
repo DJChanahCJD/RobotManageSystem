@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
 import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
+import com.huawei.innovation.rdm.coresdk.basic.vo.QueryCondition;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.OrderDelegator;
@@ -29,9 +30,18 @@ import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderCre
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderViewDTO;
 import robotManageSystem.dto.BaseResponse;
+import robotManageSystem.dto.PageResultDTO;
 
+/*
+ * order实体
+ * Name: 订单名称
+ * ID: 订单ID
+ * Type: 订单类型
+ * Quantity: 订单数量
+ * OrderDate: 订单日期
+ */
 @RestController
-@RequestMapping("/api/orders")
+@RequestMapping("/api/order")
 @CrossOrigin(origins = "*")
 public class OrderController {
     @Autowired
@@ -78,39 +88,61 @@ public class OrderController {
 
     @GetMapping("/list")
     public ResponseEntity<?> findOrders(
-            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String Name,
             @RequestParam(required = false) String ID,
+            @RequestParam(required = false) String Type,
+            @RequestParam(required = false) String StartDate,
+            @RequestParam(required = false) String EndDate,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
-            QueryRequestVo queryRequestVo = new QueryRequestVo();
+            QueryRequestVo queryRequestVo = QueryRequestVo.build();
+            QueryCondition condition = queryRequestVo.and();
 
-            // 根据订单名称模糊搜索
-            if (name != null && !name.trim().isEmpty()) {
-                queryRequestVo.addCondition("name", ConditionType.LIKE, "%" + name + "%");
+            // 名称模糊搜索
+            if (Name != null && !Name.trim().isEmpty()) {
+                condition.addCondition("name", ConditionType.LIKE, Name);
             }
 
-            // 根据订单ID的精确查询
+            // ID精确查询
             if (ID != null && !ID.trim().isEmpty()) {
                 try {
                     Long idValue = Long.parseLong(ID.trim());
-                    queryRequestVo.addCondition("id", ConditionType.EQUAL, idValue);
+                    condition.addCondition("id", ConditionType.EQUAL, idValue);
                 } catch (NumberFormatException e) {
                     return ResponseEntity.badRequest()
-                            .body(BaseResponse.error("ID必须是数字"));
+                            .body(BaseResponse.error("订单ID必须是数字"));
                 }
             }
 
+            // 类型精确查询
+            if (Type != null && !Type.trim().isEmpty()) {
+                condition.addCondition("type", ConditionType.EQUAL, Type);
+            }
+
+            // 日期范围查询
+            if (StartDate != null && !StartDate.trim().isEmpty()) {
+                condition.addCondition("orderDate", ConditionType.GREATER_EQUAL, StartDate);
+            }
+            if (EndDate != null && !EndDate.trim().isEmpty()) {
+                condition.addCondition("orderDate", ConditionType.LESS_EQUAL, EndDate);
+            }
+
+            // 设置排序（按创建时间倒序）
+            queryRequestVo.setOrderBy("createTime")
+                         .setSort("DESC");
+
+            // 执行查询
             List<OrderViewDTO> orders = orderDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
             long totalCount = orderDelegator.count(queryRequestVo);
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("pageSize", pageSize);
-            result.put("pageNo", pageNo);
-            result.put("totalCount", totalCount);
-            result.put("data", orders);
+            return ResponseEntity.ok(BaseResponse.ok(PageResultDTO.of(
+                pageNo,
+                pageSize,
+                totalCount,
+                orders
+            )));
 
-            return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(BaseResponse.error("获取订单列表失败：" + e.getMessage()));

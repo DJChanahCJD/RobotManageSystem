@@ -27,7 +27,7 @@ import com.huawei.innovation.rdm.xdm.dto.entity.EXADefinitionViewDTO;
 import com.huawei.innovation.rdm.xdm.dto.relation.EXADefinitionLinkViewDTO;
 
 @RestController
-@RequestMapping("/api/parts")
+@RequestMapping("/api/part")
 @CrossOrigin(origins = "*")
 public class PartController {
     @Autowired

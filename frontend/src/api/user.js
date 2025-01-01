@@ -51,3 +51,11 @@ export function getUserInfo () {
     method: 'get'
   })
 }
+
+export function changePassword (data) {
+  return request({
+    url: '/auth/changePassword',
+    method: 'post',
+    data: data
+  })
+}

@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -17,6 +18,7 @@ import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.UserDelegator;
+import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserViewDTO;
 
 import robotManageSystem.dto.BaseResponse;
@@ -72,5 +74,39 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout() {
         return ResponseEntity.ok(BaseResponse.ok("注销成功"));
+    }
+
+    @PostMapping("/changePassword")
+    public ResponseEntity<?> changePassword(
+        @RequestHeader(value="Access-Token", required=false) String token,
+        @RequestBody Map<String, String> passwordRequest
+    ) {
+        String newPassword = passwordRequest.get("newPassword");
+        if (newPassword == null) {
+            return ResponseEntity.badRequest().body(BaseResponse.error("新密码不能为空"));
+        }
+
+        String userId = jwtUtil.validateToken(token);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(BaseResponse.error("token无效"));
+        }
+
+        QueryRequestVo queryRequest = new QueryRequestVo();
+        queryRequest.addCondition("id", ConditionType.EQUAL, userId);
+        UserViewDTO user = userDelegator.find(queryRequest, new RDMPageVO(1, 1)).get(0);
+        if (user == null) {
+            return ResponseEntity.status(401).body(BaseResponse.error("用户不存在"));
+        }
+
+        if (newPassword.equals(user.getPassword())) {
+            return ResponseEntity.status(401).body(BaseResponse.error("新密码与旧密码相同"));
+        }
+
+        UserUpdateDTO userUpdateDTO = new UserUpdateDTO();
+        userUpdateDTO.setId(user.getId());
+        userUpdateDTO.setPassword(newPassword);
+        userDelegator.update(userUpdateDTO);
+
+        return ResponseEntity.ok(BaseResponse.ok("密码修改成功"));
     }
 }

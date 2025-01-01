@@ -198,7 +198,7 @@ public class UserController {
             result.put("role", role);
             result.put("name", user.getName());
             result.put("avatar", "https://gw.alipayobjects.com/zos/rmsportal/jZUIxmJycoymBprLOUbT.png");
-
+            result.put("password", user.getPassword());
             return ResponseEntity.ok(Collections.singletonMap("result", result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
