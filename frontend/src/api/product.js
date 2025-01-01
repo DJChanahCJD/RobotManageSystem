@@ -2,10 +2,20 @@ import request from '@/utils/request'
 
 // 获取产品列表
 export function getProductList (parameter) {
+  const { productName, productOwner, productInformation, productStage, partName, id, pageNo, pageSize } = parameter
   return request({
     url: '/product/list',
     method: 'get',
-    params: parameter
+    params: {
+      productName,
+      productOwner,
+      productInformation,
+      productStage,
+      partName,
+      id,
+      pageNo,
+      pageSize
+    }
   })
 }
 
@@ -19,10 +29,10 @@ export function createProduct (data) {
 }
 
 // 更新产品信息
-export function updateProduct (data) {
+export function updateProduct (id, data) {
   return request({
-    url: '/product/update',
-    method: 'post',
+    url: `/product/${id}`,
+    method: 'put',
     data: data
   })
 }
@@ -30,7 +40,7 @@ export function updateProduct (data) {
 // 删除产品
 export function deleteProduct (id) {
   return request({
-    url: `/product/delete/${id}`,
+    url: `/product/${id}`,
     method: 'delete'
   })
 }
@@ -38,7 +48,7 @@ export function deleteProduct (id) {
 // 获取产品详情
 export function getProductDetail (id) {
   return request({
-    url: `/product/detail/${id}`,
+    url: `/product/${id}`,
     method: 'get'
   })
 }

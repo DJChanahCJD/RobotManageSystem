@@ -12,7 +12,19 @@
             </a-col>
             <a-col :md="8" :sm="24">
               <a-form-item label="产品名称">
-                <a-input v-model="queryParam.name" placeholder="请输入产品名称"/>
+                <a-input v-model="queryParam.productName" placeholder="请输入产品名称"/>
+              </a-form-item>
+            </a-col>
+            <a-col :md="8" :sm="24">
+              <a-form-item label="工程阶段">
+                <a-select v-model="queryParam.productStage" placeholder="请选择工程阶段" clearable>
+                  <a-select-option v-for="stage in engineeringStages" :key="stage.value" :value="stage.value">{{ stage.label }}</a-select-option>
+                </a-select>
+              </a-form-item>
+            </a-col>
+            <a-col :md="8" :sm="24">
+              <a-form-item label="部件名称">
+                <a-input v-model="queryParam.partName" placeholder="请输入部件名称"/>
               </a-form-item>
             </a-col>
             <a-col :md="8" :sm="24">
@@ -41,7 +53,7 @@
           showSizeChanger: true,
           showQuickJumper: true,
           defaultPageSize: 10,
-          showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条 / 共 ${total} 条`
+          showTotal: total => `共 ${total} 条`
         }"
       >
         <template slot="productStage" slot-scope="text">
@@ -56,7 +68,7 @@
             title="确定要删除这个产品吗？"
             @confirm="() => handleDelete(record)"
           >
-            <a>删除</a>
+            <a style="color: red">删除</a>
           </a-popconfirm>
         </span>
       </s-table>
@@ -77,27 +89,29 @@
           :label-col="{ span: 4 }"
           :wrapper-col="{ span: 18 }"
         >
-          <a-form-model-item label="产品名称" prop="name">
+          <a-form-model-item label="产品名称" prop="productName">
             <div>产品名称</div>
-            <a-input v-model="form.name" placeholder="请输入产品名称" />
+            <a-input v-model="form.productName" placeholder="请输入产品名称" />
           </a-form-model-item>
-          <a-form-model-item label="基本信息" prop="basicInfo">
+          <a-form-model-item label="基本信息" prop="productInformation">
             <div>基本信息</div>
-            <a-textarea v-model="form.basicInfo" :rows="4" placeholder="请输入基本信息" />
+            <a-textarea v-model="form.productInformation" :rows="4" placeholder="请输入基本信息" />
           </a-form-model-item>
-          <a-form-model-item label="负责人" prop="owner">
+          <a-form-model-item label="负责人" prop="productOwner">
             <div>负责人</div>
-            <a-input v-model="form.owner" placeholder="请输入负责人" />
+            <a-input v-model="form.productOwner" placeholder="请输入负责人" />
           </a-form-model-item>
           <a-form-model-item label="产品阶段" prop="productStage">
             <div>产品阶段</div>
-            <a-select v-model="form.productStage" placeholder="请选择产品阶段">
-              <a-select-option value="InitialStage">初始阶段</a-select-option>
-              <a-select-option value="DesignStage">设计阶段</a-select-option>
-              <a-select-option value="DevelopmentStage">开发阶段</a-select-option>
+            <a-select v-model="form.productStage" placeholder="请选择产品阶段" style="width: 100%">
+              <a-select-option v-for="stage in engineeringStages" :key="stage.value" :value="stage.value">{{ stage.label }}</a-select-option>
             </a-select>
           </a-form-model-item>
         </a-form-model>
+        <a-form-model-item label="部件名称" prop="partName">
+          <div>部件名称</div>
+          <a-input v-model="form.partName" placeholder="请输入部件名称" />
+        </a-form-model-item>
       </a-modal>
 
       <!-- 详情弹窗 -->
@@ -113,44 +127,26 @@
             {{ detailData?.id }}
           </a-descriptions-item>
           <a-descriptions-item label="产品名称">
-            {{ detailData?.name }}
+            {{ detailData?.productName }}
           </a-descriptions-item>
           <a-descriptions-item label="基本信息" :span="2">
-            {{ detailData?.basicInfo }}
+            {{ detailData?.productInformation }}
           </a-descriptions-item>
           <a-descriptions-item label="负责人">
-            {{ detailData?.owner }}
+            {{ detailData?.productOwner }}
           </a-descriptions-item>
           <a-descriptions-item label="产品阶段">
             <a-tag :color="getStageColor(detailData?.productStage)">
               {{ detailData?.productStage }}
             </a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="版本">
-            {{ detailData?.version }}
+          <a-descriptions-item label="部件名称">
+            {{ detailData?.partName }}
           </a-descriptions-item>
           <a-descriptions-item label="创建时间">
             {{ detailData?.createTime }}
           </a-descriptions-item>
-          <a-descriptions-item label="详细描述" :span="2">
-            {{ detailData?.description }}
-          </a-descriptions-item>
         </a-descriptions>
-
-        <!-- 团队成员列表 -->
-        <a-divider>团队成员</a-divider>
-        <a-list :data-source="detailData?.teamMembers" :grid="{ gutter: 16, column: 3 }">
-          <a-list-item slot="renderItem" slot-scope="item">
-            <a-card>
-              <a-card-meta>
-                <template slot="title">{{ item.name }}</template>
-                <template slot="description">
-                  <a-tag>{{ item.role }}</a-tag>
-                </template>
-              </a-card-meta>
-            </a-card>
-          </a-list-item>
-        </a-list>
       </a-modal>
     </a-card>
   </page-header-wrapper>
@@ -159,6 +155,13 @@
 <script>
 import { STable } from '@/components'
 import { getProductDetail, createProduct, updateProduct, deleteProduct, getProductList } from '@/api/product'
+const engineeringStages = [
+  { value: 'InitialStage', label: '初始阶段' },
+  { value: 'DesignStage', label: '概念化和设计阶段' },
+  { value: 'DevelopmentStage', label: '原型开发阶段' },
+  { value: 'PartStage', label: '部件采购和制造阶段' },
+  { value: 'SaleStage', label: '产品销售阶段' }
+]
 const columns = [
   {
     title: '产品编号',
@@ -167,21 +170,25 @@ const columns = [
   },
   {
     title: '产品名称',
-    dataIndex: 'name'
+    dataIndex: 'productName'
   },
   {
     title: '基本信息',
-    dataIndex: 'basicInfo',
+    dataIndex: 'productInformation',
     ellipsis: true
   },
   {
     title: '负责人',
-    dataIndex: 'owner'
+    dataIndex: 'productOwner'
   },
   {
     title: '产品阶段',
     dataIndex: 'productStage',
     scopedSlots: { customRender: 'productStage' }
+  },
+  {
+    title: '部件名称',
+    dataIndex: 'partName'
   },
   {
     title: '操作',
@@ -204,14 +211,17 @@ export default {
       mdl: null,
       form: this.getEmptyForm(),
       rules: {
-        name: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
-        basicInfo: [{ required: true, message: '请输入基本信息', trigger: 'blur' }],
-        owner: [{ required: true, message: '请输入负责人', trigger: 'blur' }],
-        productStage: [{ required: true, message: '请选择产品阶段', trigger: 'change' }]
+        productName: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
+        productInformation: [{ required: true, message: '请输入基本信息', trigger: 'blur' }],
+        productOwner: [{ required: true, message: '请输入负责人', trigger: 'blur' }],
+        productStage: [{ required: true, message: '请选择产品阶段', trigger: 'change' }],
+        partName: [{ required: true, message: '请输入部件名称', trigger: 'blur' }]
       },
+      engineeringStages,
       queryParam: {},
       loadData: parameter => {
         return getProductList(Object.assign(parameter, this.queryParam)).then(res => {
+          console.log(res)
           return {
             data: res.result.data || [],
             pageSize: res.result.pageSize,
@@ -229,9 +239,9 @@ export default {
     getEmptyForm () {
       return {
         id: undefined,
-        name: '',
-        basicInfo: '',
-        owner: '',
+        productName: '',
+        productInformation: '',
+        productOwner: '',
         productStage: 'InitialStage'
       }
     },
@@ -239,7 +249,9 @@ export default {
       const stageColors = {
         'InitialStage': 'blue',
         'DesignStage': 'green',
-        'DevelopmentStage': 'orange'
+        'DevelopmentStage': 'orange',
+        'PartStage': 'purple',
+        'SaleStage': 'red'
       }
       return stageColors[stage] || 'default'
     },
@@ -269,11 +281,10 @@ export default {
     },
     async handleOk () {
       try {
-        await this.$refs.form.validate()
         this.confirmLoading = true
 
         if (this.mdl) {
-          await updateProduct(this.form)
+          await updateProduct(this.mdl.id, this.form)
           this.$message.success('修改成功')
         } else {
           await createProduct(this.form)
