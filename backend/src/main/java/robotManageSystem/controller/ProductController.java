@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -48,6 +49,7 @@ public class ProductController {
         }
     }
 
+    //删除产品
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProduct(@PathVariable Long id) {
         try {
@@ -61,6 +63,8 @@ public class ProductController {
         }
     }
 
+
+    //获取产品
     @GetMapping("/{id}")
     public ResponseEntity<?> getProduct(@PathVariable Long id) {
         try {
@@ -82,8 +86,9 @@ public class ProductController {
         try {
             QueryRequestVo queryRequestVo = new QueryRequestVo();
             if (keyword != null && !keyword.trim().isEmpty()) {
-                // 可以根据产品名称、部件名称等进行搜索
-                // queryRequestVo.setCondition(...);
+
+                //根据产品名称进行模糊搜索
+                queryRequestVo.addCondition("name", ConditionType.LIKE,"%" + keyword + "%");
             }
 
             List<ProductViewDTO> products = productDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
@@ -102,6 +107,7 @@ public class ProductController {
         }
     }
 
+    //更新产品
     @PutMapping("/{id}")
     public ResponseEntity<?> updateProduct(@PathVariable Long id, @RequestBody ProductUpdateDTO updateDTO) {
         try {
@@ -113,6 +119,7 @@ public class ProductController {
         }
     }
 
+    //获取产品数量
     @GetMapping("/count")
     public ResponseEntity<?> countProducts() {
         try {
@@ -133,6 +140,9 @@ public class ProductController {
             QueryRequestVo queryRequestVo = new QueryRequestVo();
             // 设置产品阶段查询条件
             // queryRequestVo.setCondition("ProductStage", stage);
+
+            //根据产品阶段进行查询
+            queryRequestVo.addCondition("stage", ConditionType.EQUAL, stage);
 
             List<ProductViewDTO> products = productDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
             long totalCount = productDelegator.count(queryRequestVo);
