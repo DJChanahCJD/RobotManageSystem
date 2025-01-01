@@ -16,24 +16,28 @@ export function createPart (data) {
   })
 }
 
-export function updatePart (data) {
+export function updatePart (id, data) {
+  const { name, description } = data
   return request({
-    url: '/part/update',
-    method: 'post',
-    data: data
+    url: `/part/${id}`,
+    method: 'put',
+    data: {
+      name,
+      description
+    }
   })
 }
 
 export function deletePart (id) {
   return request({
-    url: `/part/delete/${id}`,
+    url: `/part/${id}`,
     method: 'delete'
   })
 }
 
 export function getPartDetail (id) {
   return request({
-    url: `/part/detail/${id}`,
+    url: `/part/${id}`,
     method: 'get'
   })
 }

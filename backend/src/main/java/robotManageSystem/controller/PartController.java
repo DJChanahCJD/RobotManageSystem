@@ -6,6 +6,7 @@ import java.util.Map;
 import javax.validation.Valid;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import com.huawei.innovation.rdm.coresdk.basic.dto.*;
 import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
 import com.huawei.innovation.rdm.coresdk.basic.exception.RDMCoreSDKException;
+import com.huawei.innovation.rdm.coresdk.basic.vo.QueryCondition;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.PartDelegator;
@@ -25,6 +27,9 @@ import com.huawei.innovation.rdm.xdm.delegator.EXADefinitionLinkDelegator;
 import com.huawei.innovation.rdm.xdm.dto.entity.ClassificationNodeViewDTO;
 import com.huawei.innovation.rdm.xdm.dto.entity.EXADefinitionViewDTO;
 import com.huawei.innovation.rdm.xdm.dto.relation.EXADefinitionLinkViewDTO;
+
+import robotManageSystem.dto.BaseResponse;
+import robotManageSystem.dto.PageResultDTO;
 
 @RestController
 @RequestMapping("/api/part")
@@ -63,13 +68,18 @@ public class PartController {
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deletePart(@PathVariable Long id) {
         try {
-            MasterIdModifierDTO dto = new MasterIdModifierDTO();
-            dto.setMasterId(id);
-            int result = partDelegator.delete(dto);
-            return ResponseEntity.ok(Collections.singletonMap("deleted", result > 0));
+            MasterIdModifierDTO modifierDTO = new MasterIdModifierDTO();
+            modifierDTO.setMasterId(id);
+            int result = partDelegator.delete(modifierDTO);
+            if (result > 0) {
+                return ResponseEntity.ok(BaseResponse.ok(result));
+            } else {
+                return ResponseEntity.internalServerError()
+                    .body(BaseResponse.error("删除部件失败: " + result));
+            }
         } catch (RDMCoreSDKException e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "删除部件失败：" + e.getMessage()));
+                .body(BaseResponse.error("删除部件失败：" + e.getMessage()));
         }
     }
 
@@ -88,40 +98,95 @@ public class PartController {
 
     @GetMapping("/list")
     public ResponseEntity<?> findParts(
-            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String id,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) String version,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
-            QueryRequestVo queryRequestVo = new QueryRequestVo();
-            if (keyword != null && !keyword.trim().isEmpty()) {
-                queryRequestVo.addCondition("name", ConditionType.LIKE, "%" + keyword + "%");
+            QueryRequestVo queryRequestVo = QueryRequestVo.build();
+            QueryCondition condition = queryRequestVo.and();
+
+            if (name != null && !name.trim().isEmpty()) {
+                condition.addCondition("name", ConditionType.LIKE, name);
+            }
+            if (description != null && !description.trim().isEmpty()) {
+                condition.addCondition("description", ConditionType.LIKE, description);
+            }
+            if (version != null && !version.trim().isEmpty()) {
+                condition.addCondition("version", ConditionType.LIKE, version);
+            }
+            if (id != null && !id.trim().isEmpty()) {
+                condition.addCondition("id", ConditionType.EQUAL, id);
             }
 
+            queryRequestVo.setOrderBy("createTime").setSort("DESC");
+
+            // 执行查询
             List<PartViewDTO> parts = partDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
             long totalCount = partDelegator.count(queryRequestVo);
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("pageSize", pageSize);
-            result.put("pageNo", pageNo);
-            result.put("totalCount", totalCount);
-            result.put("data", parts);
-
-            return ResponseEntity.ok(Collections.singletonMap("result", result));
+            return ResponseEntity.ok(BaseResponse.ok(PageResultDTO.of(
+                pageNo,
+                pageSize,
+                totalCount,
+                parts
+            )));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "获取部件列表失败：" + e.getMessage()));
+                .body(BaseResponse.error("获取部件列表失败：" + e.getMessage()));
         }
     }
 
     // 更新部件
     @PutMapping("/{id}")
-    public ResponseEntity<?> updatePart(@PathVariable Long id, @Valid @RequestBody PartUpdateDTO updateDTO) {
+    public ResponseEntity<?> updatePart(@PathVariable Long id, @RequestBody Map<String, Object> updateData) {
         try {
+            // 参数校验
+            if (updateData == null || updateData.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(BaseResponse.error("更新数据不能为空"));
+            }
+
+            // 创建更新DTO
+            PartUpdateDTO updateDTO = new PartUpdateDTO();
+            updateDTO.setId(id);
+            updateDTO.setNeedSetNullAttrs(Arrays.asList("name", "description"));
+            updateDTO.setRdmExtensionType("PART");
+            updateDTO.setSecurityLevel("0");
+            // 设置基本属性
+            if (updateData.containsKey("name")) {
+                updateDTO.setName((String) updateData.get("name"));
+            }
+            if (updateData.containsKey("description")) {
+                updateDTO.setDescription((String) updateData.get("description"));
+            }
+
+            System.out.println("[before set branch] updateDTO: " + updateDTO);
+            // 创建主数据对象
+            PartMasterUpdateDTO masterDTO = new PartMasterUpdateDTO();
+            // 创建分支数据对象
+            PartBranchUpdateDTO branchDTO = new PartBranchUpdateDTO();
+
+            // 设置主数据和分支数据
+            updateDTO.setMaster(masterDTO);
+            updateDTO.setBranch(branchDTO);
+
+            // 执行更新操作
             PartViewDTO result = partDelegator.update(updateDTO);
-            return ResponseEntity.ok(result);
+
+            System.out.println("[after update] result: " + result);
+            return ResponseEntity.ok(BaseResponse.ok(result));
+        } catch (ClassCastException e) {
+            return ResponseEntity.badRequest()
+                .body(BaseResponse.error("数据格式错误：" + e.getMessage()));
         } catch (RDMCoreSDKException e) {
             return ResponseEntity.internalServerError()
-                .body(Collections.singletonMap("error", "更新部件失败：" + e.getMessage()));
+                .body(BaseResponse.error("更新部件失败：" + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(BaseResponse.error("系统错误：" + e.getMessage()));
         }
     }
 
