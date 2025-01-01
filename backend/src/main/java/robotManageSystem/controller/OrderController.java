@@ -1,199 +1,252 @@
 package robotManageSystem.controller;
 
-import java.util.Collections;
-import java.util.HashMap;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 
+import javax.validation.Valid;
+
+import java.util.Collections;
+import java.util.HashMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;
-import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdModifierDTO;
+import com.huawei.innovation.rdm.coresdk.basic.dto.*;
 import com.huawei.innovation.rdm.coresdk.basic.enums.ConditionType;
-import com.huawei.innovation.rdm.coresdk.basic.vo.QueryCondition;
+import com.huawei.innovation.rdm.coresdk.basic.exception.RDMCoreSDKException;
 import com.huawei.innovation.rdm.coresdk.basic.vo.QueryRequestVo;
 import com.huawei.innovation.rdm.coresdk.basic.vo.RDMPageVO;
-import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.OrderDelegator;
-import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderCreateDTO;
-import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderUpdateDTO;
-import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderViewDTO;
-import robotManageSystem.dto.BaseResponse;
-import robotManageSystem.dto.PageResultDTO;
+import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.PartDelegator;
+import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.*;
+import com.huawei.innovation.rdm.xdm.delegator.ClassificationNodeDelegator;
+import com.huawei.innovation.rdm.xdm.delegator.EXADefinitionLinkDelegator;
+import com.huawei.innovation.rdm.xdm.dto.entity.ClassificationNodeViewDTO;
+import com.huawei.innovation.rdm.xdm.dto.relation.EXADefinitionLinkViewDTO;
 
-/*
- * order实体
- * Name: 订单名称
- * ID: 订单ID
- * Type: 订单类型
- * Quantity: 订单数量
- * OrderDate: 订单日期
- */
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
 @RestController
-@RequestMapping("/api/order")
+@RequestMapping("/api/parts")
 @CrossOrigin(origins = "*")
-public class OrderController {
+public class PartController {
+    private static final Logger logger = LoggerFactory.getLogger(PartController.class);
+
     @Autowired
-    private OrderDelegator orderDelegator;
+    private PartDelegator partDelegator;
+
+    @Autowired
+    private ClassificationNodeDelegator classificationNodeDelegator;
+
+    @Autowired
+    private EXADefinitionLinkDelegator exaDefinitionLinkDelegator;
+
+    @ExceptionHandler(RDMCoreSDKException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ResponseEntity<?> handleRDMCoreSDKException(RDMCoreSDKException e) {
+        logger.error("RDMCoreSDKException occurred", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Collections.singletonMap("error", "RDMCoreSDKException: " + e.getMessage()));
+    }
+
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ResponseEntity<?> handleException(Exception e) {
+        logger.error("Unexpected error occurred", e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Collections.singletonMap("error", "Unexpected error: " + e.getMessage()));
+    }
+
 
     @PostMapping("/create")
-    public ResponseEntity<?> createOrder(@RequestBody OrderCreateDTO createDTO) {
+    public ResponseEntity<?> createPart(@RequestBody PartCreateDTO createDTO) {
         try {
-            System.out.println("开始创建订单: " + createDTO);
-            Object result = orderDelegator.create(createDTO);
-            return ResponseEntity.ok(BaseResponse.ok(result));
+            // 创建主对象
+            PartMasterCreateDTO pmcd = new PartMasterCreateDTO();
+
+            // 创建分支对象
+            PartBranchCreateDTO pbcd = new PartBranchCreateDTO();
+            // 设置Part的主对象和分支对象
+            createDTO.setMaster(pmcd);
+            createDTO.setBranch(pbcd);
+
+            Object result = partDelegator.create(createDTO);
+            return ResponseEntity.ok(Collections.singletonMap("data", result));
         } catch (Exception e) {
-            System.out.println("创建订单失败: " + e.getMessage());
             return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("创建订单失败：" + e.getMessage()));
+                    .body(Collections.singletonMap("error", "创建部件失败：" + e.getMessage()));
         }
     }
 
+    // 删除部件前检查是否被产品调用
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteOrder(@PathVariable Long id) {
+    public ResponseEntity<?> deletePart(@PathVariable Long id) {
         try {
-            PersistObjectIdModifierDTO idDTO = new PersistObjectIdModifierDTO();
-            idDTO.setId(id);
-            orderDelegator.delete(idDTO);
-            return ResponseEntity.ok(BaseResponse.ok(Collections.singletonMap("message", "订单删除成功")));
-        } catch (Exception e) {
+            // 检查部件是否被任何产品调用
+            boolean isUsed = checkIfPartIsUsed(id);
+            if (isUsed) {
+                return ResponseEntity.badRequest().body(Collections.singletonMap("error", "部件正在被使用，无法删除"));
+            }
+            MasterIdModifierDTO dto = new MasterIdModifierDTO();
+            dto.setMasterId(id);
+            int result = partDelegator.delete(dto);
+            return ResponseEntity.ok(Collections.singletonMap("deleted", result > 0));
+        } catch (RDMCoreSDKException e) {
             return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("删除订单失败：" + e.getMessage()));
+                    .body(Collections.singletonMap("error", "删除部件失败：" + e.getMessage()));
         }
     }
+
+    // 检查部件是否被任何产品调用
+    private boolean checkIfPartIsUsed(Long partId) {
+        // 这里需要实现检查逻辑，例如查询产品部件关系表
+        // 返回true如果部件被使用，否则返回false
+        // 此处省略具体实现细节
+        return false;
+    }
+
+
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getOrder(@PathVariable Long id) {
+    public ResponseEntity<?> getPart(@PathVariable Long id) {
         try {
             PersistObjectIdDecryptDTO idDTO = new PersistObjectIdDecryptDTO();
             idDTO.setId(id);
-            OrderViewDTO order = orderDelegator.get(idDTO);
-            return ResponseEntity.ok(BaseResponse.ok(order));
-        } catch (Exception e) {
+            PartViewDTO part = partDelegator.get(idDTO);
+            return ResponseEntity.ok(part);
+        } catch (RDMCoreSDKException e) {
             return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("获取订单失败：" + e.getMessage()));
+                    .body(Collections.singletonMap("error", "获取部件失败：" + e.getMessage()));
         }
     }
+
 
     @GetMapping("/list")
-    public ResponseEntity<?> findOrders(
-            @RequestParam(required = false) String Name,
-            @RequestParam(required = false) String ID,
-            @RequestParam(required = false) String Type,
-            @RequestParam(required = false) String StartDate,
-            @RequestParam(required = false) String EndDate,
-            @RequestParam(defaultValue = "1") int pageNo,
-            @RequestParam(defaultValue = "10") int pageSize) {
-        try {
-            QueryRequestVo queryRequestVo = QueryRequestVo.build();
-            QueryCondition condition = queryRequestVo.and();
-
-            // 名称模糊搜索
-            if (Name != null && !Name.trim().isEmpty()) {
-                condition.addCondition("name", ConditionType.LIKE, Name);
-            }
-
-            // ID精确查询
-            if (ID != null && !ID.trim().isEmpty()) {
-                try {
-                    Long idValue = Long.parseLong(ID.trim());
-                    condition.addCondition("id", ConditionType.EQUAL, idValue);
-                } catch (NumberFormatException e) {
-                    return ResponseEntity.badRequest()
-                            .body(BaseResponse.error("订单ID必须是数字"));
-                }
-            }
-
-            // 类型精确查询
-            if (Type != null && !Type.trim().isEmpty()) {
-                condition.addCondition("type", ConditionType.EQUAL, Type);
-            }
-
-            // 日期范围查询
-            if (StartDate != null && !StartDate.trim().isEmpty()) {
-                condition.addCondition("orderDate", ConditionType.GREATER_EQUAL, StartDate);
-            }
-            if (EndDate != null && !EndDate.trim().isEmpty()) {
-                condition.addCondition("orderDate", ConditionType.LESS_EQUAL, EndDate);
-            }
-
-            // 设置排序（按创建时间倒序）
-            queryRequestVo.setOrderBy("createTime")
-                         .setSort("DESC");
-
-            // 执行查询
-            List<OrderViewDTO> orders = orderDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
-            long totalCount = orderDelegator.count(queryRequestVo);
-
-            return ResponseEntity.ok(BaseResponse.ok(PageResultDTO.of(
-                pageNo,
-                pageSize,
-                totalCount,
-                orders
-            )));
-
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("获取订单列表失败：" + e.getMessage()));
-        }
-    }
-
-    //按类型获取订单列表
-    @GetMapping("/by-type/{type}")
-    public ResponseEntity<?> findOrdersByType(
-            @PathVariable String type,
+    public ResponseEntity<?> findParts(
+            @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "1") int pageNo,
             @RequestParam(defaultValue = "10") int pageSize) {
         try {
             QueryRequestVo queryRequestVo = new QueryRequestVo();
-            queryRequestVo.addCondition("type", ConditionType.EQUAL, type);
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                queryRequestVo.addCondition("name", ConditionType.LIKE, "%" + keyword + "%");
+            }
 
-            List<OrderViewDTO> orders = orderDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
-            long totalCount = orderDelegator.count(queryRequestVo);
+            List<PartViewDTO> parts = partDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
+            long totalCount = partDelegator.count(queryRequestVo);
 
             Map<String, Object> result = new HashMap<>();
             result.put("pageSize", pageSize);
             result.put("pageNo", pageNo);
             result.put("totalCount", totalCount);
-            result.put("data", orders);
+            result.put("data", parts);
 
-            return ResponseEntity.ok(BaseResponse.ok(result));
+            return ResponseEntity.ok(Collections.singletonMap("result", result));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("按类型获取订单列表失败：" + e.getMessage()));
+                    .body(Collections.singletonMap("error", "获取部件列表失败：" + e.getMessage()));
         }
     }
 
+    // 获取部件详情
+    @GetMapping("/{id}/_detail")
+    public ResponseEntity<?> getPartDetail(@PathVariable Long id) {
+        try {
+            PersistObjectIdDecryptDTO idDTO = new PersistObjectIdDecryptDTO();
+            idDTO.setId(id);
+            PartViewDTO part = partDelegator.get(idDTO);
+            if (part == null) {
+                return ResponseEntity.notFound().build();
+            }
+            // 这里可以添加逻辑来获取部件的分类和属性信息
+            // 例如，通过部件的分类ID去查询分类和属性信息
+            Boolean classificationId = part.getLatestIteration();
+            List<EXADefinitionLinkViewDTO> attributes = getAttributesByClassificationId(classificationId);
+            part.setLastUpdateTime((Timestamp) attributes);
+            return ResponseEntity.ok(Collections.singletonMap("data", part));
+        } catch (RDMCoreSDKException e) {
+            return ResponseEntity.internalServerError()
+                    .body(Collections.singletonMap("error", "获取部件详情失败：" + e.getMessage()));
+        }
+    }
+
+    private List<EXADefinitionLinkViewDTO> getAttributesByClassificationId(Boolean classificationId) {
+        return null;
+    }
+
+    private List<EXADefinitionLinkViewDTO> getAttributesByClassificationId(Long classificationId) {
+        return null;
+    }
+
+
+
+    // 更新部件
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateOrder(@PathVariable Long id, @RequestBody OrderUpdateDTO updateDTO) {
+    public ResponseEntity<?> updatePart(@PathVariable Long id, @Valid @RequestBody PartUpdateDTO updateDTO) {
         try {
-            OrderViewDTO result = orderDelegator.update(updateDTO);
-            return ResponseEntity.ok(BaseResponse.ok(result));
-        } catch (Exception e) {
+            PartViewDTO result = partDelegator.update(updateDTO);
+            return ResponseEntity.ok(result);
+        } catch (RDMCoreSDKException e) {
             return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("更新订单失败：" + e.getMessage()));
+                    .body(Collections.singletonMap("error", "更新部件失败：" + e.getMessage()));
         }
     }
 
-    @GetMapping("/count")
-    public ResponseEntity<?> countOrders() {
+
+    @GetMapping("/classifications")
+    public ResponseEntity<?> getClassificationList() {
         try {
-            long count = orderDelegator.count(new QueryRequestVo());
-            return ResponseEntity.ok(BaseResponse.ok(Collections.singletonMap("count", count)));
+            QueryRequestVo queryRequestVo = new QueryRequestVo();
+            queryRequestVo.addCondition("businessCode", ConditionType.LIKE, "");
+            RDMPageVO rdmPageVO = new RDMPageVO(1, Integer.MAX_VALUE);
+
+            List<ClassificationNodeViewDTO> classifications =
+                    classificationNodeDelegator.find(queryRequestVo, rdmPageVO);
+
+            return ResponseEntity.ok(Collections.singletonMap("data", classifications));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("获取订单数量失败：" + e.getMessage()));
+                    .body(Collections.singletonMap("error", "获取分类列表失败：" + e.getMessage()));
         }
     }
+
+    @GetMapping("/attributes/{classificationId}")
+    public ResponseEntity<?> getClassificationAttribute(@PathVariable Long classificationId) {
+        try {
+            QueryRequestVo queryRequestVo = new QueryRequestVo();
+            queryRequestVo.addCondition("targetId", ConditionType.EQUAL, classificationId);
+            RDMPageVO rdmPageVO = new RDMPageVO(1, Integer.MAX_VALUE);
+            List<EXADefinitionLinkViewDTO> attributes = exaDefinitionLinkDelegator.find(queryRequestVo, rdmPageVO);
+            return ResponseEntity.ok(Collections.singletonMap("data", attributes));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Collections.singletonMap("error", "获取分类属性失败：" + e.getMessage()));
+        }
+    }
+    
+
+    @GetMapping("/{id}/attributes")
+    public ResponseEntity<?> getPartAttributes(@PathVariable Long id) {
+        try {
+            QueryRequestVo queryDTO = new QueryRequestVo();
+            queryDTO.addCondition("targetId", ConditionType.EQUAL, id);
+            RDMPageVO pageVO = new RDMPageVO(1, 10);
+
+            List<EXADefinitionLinkViewDTO> attributes =
+                    exaDefinitionLinkDelegator.queryRelationship(
+                            new GenericLinkQueryDTO(),
+                            pageVO
+                    );
+            return ResponseEntity.ok(attributes);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Collections.singletonMap("error", "获取部件属性失败：" + e.getMessage()));
+        }
+    }
+
 }
