@@ -411,4 +411,39 @@ public ResponseEntity<?> getAttributeByClassificationId(@PathVariable Long class
                 .body(Collections.singletonMap("error", "获取部件属性失败：" + e.getMessage()));
         }
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<?> searchParts(@RequestParam String keyword) {
+        try {
+            QueryRequestVo queryRequestVo = QueryRequestVo.build();
+            QueryCondition condition = queryRequestVo.or();  // 使用 OR 条件
+
+            // 在名称和描述中搜索
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                condition.addCondition("name", ConditionType.LIKE, keyword.trim());
+            }
+
+            // 限制返回数量，提高性能
+            RDMPageVO pageVO = new RDMPageVO(1, 20);
+            List<PartViewDTO> parts = partDelegator.find(queryRequestVo, pageVO);
+
+            if (parts == null) {
+                return ResponseEntity.ok(BaseResponse.ok(Collections.emptyList()));
+            }
+            // 简化返回数据
+            List<Map<String, Object>> results = parts.stream()
+                .map(part -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", part.getId().toString());
+                    result.put("name", part.getName());
+                    return result;
+                })
+                .collect(Collectors.toList());
+
+            return ResponseEntity.ok(BaseResponse.ok(results));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(BaseResponse.error("搜索部件失败：" + e.getMessage()));
+        }
+    }
 }

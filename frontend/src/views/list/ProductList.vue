@@ -23,11 +23,6 @@
               </a-form-item>
             </a-col>
             <a-col :md="8" :sm="24">
-              <a-form-item label="部件名称">
-                <a-input v-model="queryParam.partName" placeholder="请输入部件名称"/>
-              </a-form-item>
-            </a-col>
-            <a-col :md="8" :sm="24">
               <span class="table-page-search-submitButtons">
                 <a-button type="primary" @click="$refs.table.refresh(true)">查询</a-button>
                 <a-button style="margin-left: 8px" @click="() => this.queryParam = {}">重置</a-button>
@@ -107,11 +102,47 @@
               <a-select-option v-for="stage in engineeringStages" :key="stage.value" :value="stage.value">{{ stage.label }}</a-select-option>
             </a-select>
           </a-form-model-item>
+          <a-form-model-item label="关联部件" prop="partId">
+            <div>关联部件</div>
+            <a-select
+              v-model="form.partId"
+              placeholder="请搜索选择部件"
+              :loading="partLoading"
+              show-search
+              allowClear
+              :filter-option="false"
+              :default-active-first-option="false"
+              :show-arrow="false"
+              :not-found-content="partLoading ? '加载中...' : '无匹配结果'"
+              @search="handlePartSearch"
+              style="width: 100%"
+            >
+              <a-select-option v-for="part in partOptions" :key="part.id" :value="part.id">
+                {{ part.name }} ({{ part.id }})
+              </a-select-option>
+            </a-select>
+          </a-form-model-item>
+          <a-form-model-item label="关联蓝图" prop="blueprintId">
+            <div>关联蓝图</div>
+            <a-select
+              v-model="form.blueprintId"
+              placeholder="请搜索选择蓝图"
+              :loading="blueprintLoading"
+              show-search
+              allowClear
+              :filter-option="false"
+              :default-active-first-option="false"
+              :show-arrow="false"
+              :not-found-content="blueprintLoading ? '加载中...' : '无匹配结果'"
+              @search="handleBlueprintSearch"
+              style="width: 100%"
+            >
+              <a-select-option v-for="blueprint in blueprintOptions" :key="blueprint.id" :value="blueprint.id">
+                {{ blueprint.description }} ({{ blueprint.id }})
+              </a-select-option>
+            </a-select>
+          </a-form-model-item>
         </a-form-model>
-        <a-form-model-item label="部件名称" prop="partName">
-          <div>部件名称</div>
-          <a-input v-model="form.partName" placeholder="请输入部件名称" />
-        </a-form-model-item>
       </a-modal>
 
       <!-- 详情弹窗 -->
@@ -124,27 +155,44 @@
       >
         <a-descriptions bordered :column="2">
           <a-descriptions-item label="产品编号">
-            {{ detailData?.id }}
+            {{ detailData?.product.id }}
           </a-descriptions-item>
           <a-descriptions-item label="产品名称">
-            {{ detailData?.productName }}
+            {{ detailData?.product.productName }}
           </a-descriptions-item>
           <a-descriptions-item label="基本信息" :span="2">
             {{ detailData?.productInformation }}
           </a-descriptions-item>
           <a-descriptions-item label="负责人">
-            {{ detailData?.productOwner }}
+            {{ detailData?.product.productOwner }}
           </a-descriptions-item>
           <a-descriptions-item label="产品阶段">
-            <a-tag :color="getStageColor(detailData?.productStage)">
-              {{ detailData?.productStage }}
+            <a-tag :color="getStageColor(detailData?.product.productStage)">
+              {{ detailData?.product.productStage }}
             </a-tag>
           </a-descriptions-item>
+          <a-descriptions-item label="部件id">
+            {{ detailData?.part?.id }}
+          </a-descriptions-item>
           <a-descriptions-item label="部件名称">
-            {{ detailData?.partName }}
+            {{ detailData?.part?.name }}
+          </a-descriptions-item>
+          <a-descriptions-item label="蓝图id">
+            {{ detailData?.blueprint?.id }}
+          </a-descriptions-item>
+          <a-descriptions-item label="蓝图">
+            <a @click="handleDownload(detailData?.blueprint?.bluePrint[0], detailData?.blueprint?.id)" v-if="detailData?.blueprint?.bluePrint[0]">
+              {{ detailData?.blueprint?.bluePrint[0].name }}
+            </a>
+            <span v-else>
+              暂无文件
+            </span>
           </a-descriptions-item>
           <a-descriptions-item label="创建时间">
-            {{ detailData?.createTime }}
+            {{ detailData?.product.createTime }}
+          </a-descriptions-item>
+          <a-descriptions-item label="更新时间">
+            {{ detailData?.product.lastUpdateTime }}
           </a-descriptions-item>
         </a-descriptions>
       </a-modal>
@@ -154,7 +202,11 @@
 
 <script>
 import { STable } from '@/components'
-import { getProductDetail, createProduct, updateProduct, deleteProduct, getProductList } from '@/api/product'
+import { getProductDetail, createProduct, updateProduct, deleteProduct, getProductList, getProductLinks } from '@/api/product'
+import { debounce } from 'lodash-es'
+import { searchParts } from '@/api/part'
+import { searchBlueprints, downloadBlueprint } from '@/api/blueprint'
+
 const engineeringStages = [
   { value: 'InitialStage', label: '初始阶段' },
   { value: 'DesignStage', label: '概念化和设计阶段' },
@@ -187,10 +239,6 @@ const columns = [
     scopedSlots: { customRender: 'productStage' }
   },
   {
-    title: '部件名称',
-    dataIndex: 'partName'
-  },
-  {
     title: '操作',
     dataIndex: 'action',
     width: '200px',
@@ -215,7 +263,8 @@ export default {
         productInformation: [{ required: true, message: '请输入基本信息', trigger: 'blur' }],
         productOwner: [{ required: true, message: '请输入负责人', trigger: 'blur' }],
         productStage: [{ required: true, message: '请选择产品阶段', trigger: 'change' }],
-        partName: [{ required: true, message: '请输入部件名称', trigger: 'blur' }]
+        partId: [{ required: true, message: '请选择关联部件', trigger: 'change' }],
+        blueprintId: [{ required: true, message: '请选择关联蓝图', trigger: 'change' }]
       },
       engineeringStages,
       queryParam: {},
@@ -232,17 +281,57 @@ export default {
         })
       },
       detailVisible: false,
-      detailData: null
+      detailData: null,
+      partOptions: [],
+      blueprintOptions: [],
+      partLoading: false,
+      blueprintLoading: false
     }
   },
+  created () {
+    this.debouncedPartSearch = debounce(this.fetchParts, 300)
+    this.debouncedBlueprintSearch = debounce(this.fetchBlueprints, 300)
+    this.fetchParts()
+    this.fetchBlueprints()
+  },
   methods: {
+    async handleDownload (fileInfo, blueprintId) {
+      try {
+        this.$message.loading('文件下载中...')
+        const response = await downloadBlueprint(fileInfo.id, blueprintId)
+
+        // 创建 Blob 对象
+        const blob = new Blob([response], { type: response.type })
+
+        // 创建下载链接
+        const link = document.createElement('a')
+        link.href = window.URL.createObjectURL(blob)
+
+        // 设置文件名
+        link.download = fileInfo.name || 'blueprint.png'
+
+        // 触发下载
+        document.body.appendChild(link)
+        link.click()
+
+        // 清理
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(link.href)
+
+        this.$message.success('下载成功')
+      } catch (error) {
+        this.$message.error('下载失败：' + (error.message || '未知错误'))
+      }
+    },
     getEmptyForm () {
       return {
         id: undefined,
         productName: '',
         productInformation: '',
         productOwner: '',
-        productStage: 'InitialStage'
+        productStage: 'InitialStage',
+        partId: undefined,
+        blueprintId: undefined
       }
     },
     getStageColor (stage) {
@@ -260,10 +349,23 @@ export default {
       this.form = this.getEmptyForm()
       this.visible = true
     },
-    handleEdit (record) {
+    async handleEdit (record) {
       this.mdl = { ...record }
-      this.form = { ...record }
       this.visible = true
+
+      try {
+        // 获取关联信息
+        const { result } = await getProductLinks(record.id)
+
+        // 设置表单数据
+        this.form = {
+          ...record,
+          partId: result.partId,
+          blueprintId: result.blueprintId
+        }
+      } catch (error) {
+        this.$message.error('获取关联信息失败：' + error.message)
+      }
     },
     async handleDetail (record) {
       try {
@@ -306,6 +408,36 @@ export default {
     handleDetailCancel () {
       this.detailVisible = false
       this.detailData = null
+    },
+    handlePartSearch (value) {
+      this.debouncedPartSearch(value)
+    },
+    async fetchParts (keyword = '') {
+      try {
+        this.partLoading = true
+        const res = await searchParts({ keyword })
+        this.partOptions = res.result || []
+      } catch (error) {
+        this.$message.error('获取部件失败：' + error.message)
+      } finally {
+        this.partLoading = false
+      }
+    },
+    handleBlueprintSearch (value) {
+      this.debouncedBlueprintSearch(value)
+    },
+    async fetchBlueprints (keyword = '') {
+      try {
+        this.blueprintLoading = true
+        const res = await searchBlueprints({ keyword })
+        this.blueprintOptions = res.result || []
+        console.log('res.result', res.result)
+        console.log('this.blueprintOptions', this.blueprintOptions)
+      } catch (error) {
+        this.$message.error('获取蓝图失败：' + error.message)
+      } finally {
+        this.blueprintLoading = false
+      }
     }
   }
 }

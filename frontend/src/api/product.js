@@ -60,3 +60,11 @@ export function getProductStages () {
     method: 'get'
   })
 }
+
+// 获取产品部件链接
+export function getProductLinks (id) {
+  return request({
+    url: `/product/${id}/links`,
+    method: 'get'
+  })
+}

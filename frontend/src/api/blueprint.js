@@ -73,3 +73,11 @@ export function downloadBlueprint (fileId, blueprintId) {
     responseType: 'blob'
   })
 }
+
+export function searchBlueprints (parameter) {
+  return request({
+    url: '/blueprint/search',
+    method: 'get',
+    params: parameter
+  })
+}

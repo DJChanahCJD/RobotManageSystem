@@ -53,3 +53,11 @@ export function getPartAttributes (id) {
     method: 'get'
   })
 }
+
+export function searchParts (parameter) {
+  return request({
+    url: '/part/search',
+    method: 'get',
+    params: parameter
+  })
+}

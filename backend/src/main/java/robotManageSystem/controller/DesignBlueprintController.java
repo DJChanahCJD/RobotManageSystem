@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -68,7 +69,7 @@ public class DesignBlueprintController {
                 fileModel.setId(Long.parseLong(fileId));
                 createDTO.setBluePrint(Collections.singletonList(fileModel));
             }
-            Object result = designBlueprintDelegator.create(createDTO);
+            DesignBlueprintViewDTO result = designBlueprintDelegator.create(createDTO);
             return ResponseEntity.ok(BaseResponse.ok(result));
         } catch (RDMCoreSDKException e) {
             return ResponseEntity.internalServerError()
@@ -250,6 +251,40 @@ public class DesignBlueprintController {
             } catch (IOException ex) {
                 System.out.println("写入错误响应失败");
             }
+        }
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<?> searchBlueprints(@RequestParam(required = false) String keyword) {
+        try {
+            QueryRequestVo queryRequestVo = QueryRequestVo.build();
+            QueryCondition condition = queryRequestVo.or();
+
+            // 在描述中搜索
+            if (keyword != null && !keyword.trim().isEmpty()) {
+                condition.addCondition("blueprintDescription", ConditionType.LIKE, keyword.trim());
+            }
+
+            // 限制返回数量
+            RDMPageVO pageVO = new RDMPageVO(1, 20);
+            List<DesignBlueprintViewDTO> blueprints = designBlueprintDelegator.find(queryRequestVo, pageVO);
+            if (blueprints == null) {
+                return ResponseEntity.ok(BaseResponse.ok(Collections.emptyList()));
+            }
+            // 修改返回数据处理
+            List<Map<String, Object>> results = blueprints.stream()
+                .map(blueprint -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", blueprint.getId().toString());  // 转为字符串
+                    result.put("description", blueprint.getBlueprintDescription());
+                    return result;
+                })
+                .collect(Collectors.toList());
+
+            return ResponseEntity.ok(BaseResponse.ok(results));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(BaseResponse.error("搜索蓝图失败：" + e.getMessage()));
         }
     }
 }
