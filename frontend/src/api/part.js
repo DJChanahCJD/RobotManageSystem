@@ -9,6 +9,7 @@ export function getPartList (parameter) {
 }
 
 export function createPart (data) {
+  console.log('data  from createPart: ', data)
   return request({
     url: '/part/create',
     method: 'post',
@@ -17,14 +18,10 @@ export function createPart (data) {
 }
 
 export function updatePart (masterId, data) {
-  const { name, description } = data
   return request({
     url: `/part/${masterId}`,
     method: 'put',
-    data: {
-      name,
-      description
-    }
+    data: data
   })
 }
 
@@ -38,6 +35,21 @@ export function deletePart (id) {
 export function getPartDetail (id) {
   return request({
     url: `/part/${id}`,
+    method: 'get'
+  })
+}
+// 获取分类
+export function getClassificationList () {
+  return request({
+    url: `/part/classification/list`,
+    method: 'get'
+  })
+}
+
+// 获取零件分类属性
+export function getPartAttributes (id) {
+  return request({
+    url: `/part/classification/${id}/attributes`,
     method: 'get'
   })
 }
