@@ -1,7 +1,5 @@
 package robotManageSystem.controller;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -35,8 +33,8 @@ import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.UserView
 
 import robotManageSystem.dto.BaseResponse;
 import robotManageSystem.dto.PageResultDTO;
-import robotManageSystem.utils.JwtUtil;
 import robotManageSystem.enums.Authority;
+import robotManageSystem.utils.JwtUtil;
 
 /*
  * User实体
@@ -162,11 +160,6 @@ public class UserController {
             return ResponseEntity.internalServerError()
                 .body(BaseResponse.error("获取用户列表失败: " + e.getMessage()));
         }
-    }
-
-    @GetMapping("/count")
-    public long countUsers() {
-        return userDelegator.count(new QueryRequestVo());
     }
 
     @PutMapping("/{id}")

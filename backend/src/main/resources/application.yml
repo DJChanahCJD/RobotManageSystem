@@ -3,12 +3,22 @@ server:
   ssl:
     enabled: false  # 本地开发禁用 SSL
 
+# 参考文档：https://codelabs.developer.huaweicloud.com/codelabs/samples/d26d2842cd9b4ece9ddf4cacc14f38e9
+# delegate.subAppId：应用唯一标识URI，组成为rdm_{app_id}_app，可以从运行态的URL中截取。
+# delegate.domain：iDME的运行态域名，可以从运行态URL中截取，北京四环境保持默认即可。
+# delegate.domainName：IAM账号。
+# delegate.userName：IAM用户名。
+# delegate.password：IAM密码。
+# delegate.endpoint：IAM域名，后续获取Token使用，北京四环境保持默认即可。
+# delegate.regionName：局域名，北京四为cn-north-4。
+# delegate.serviceType：服务uri类型，默认保持为services/dynamic即可。
+
 delegate:
-  subAppId: rdm_1dd2dce363cc4e5fbe951a171a91b825_app
+  subAppId: rdm_1dd2dce363cc4e5fbe951a171a91b825_app # 子应用ID（需替换成你的实际子应用ID，下同）
   domain: https://dme.cn-north-4.huaweicloud.com
-  domainName: djchanahcjd
-  userName: hid_c7i7kks2hw1e4le
-  password: admin123456
+  domainName: djchanahcjd # 主用户名
+  userName: hid_c7i7kks2hw1e4le # 用户名
+  password: admin123456 # 密码
   endpoint: https://iam.cn-north-4.myhuaweicloud.com
   regionName: cn-north-4
   serviceType: services/dynamic

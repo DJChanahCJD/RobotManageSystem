@@ -5,8 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.management.Query;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -40,11 +38,12 @@ import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.ProductC
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.ProductUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.ProductViewDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.relation.ProductBlueprintLinkCreateDTO;
+import com.huawei.innovation.rdm.intelligentrobotengineering.dto.relation.ProductBlueprintLinkUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.relation.ProductBlueprintLinkViewDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.relation.ProductPartLinkCreateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.relation.ProductPartLinkUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.relation.ProductPartLinkViewDTO;
-import com.huawei.innovation.rdm.intelligentrobotengineering.dto.relation.ProductBlueprintLinkUpdateDTO;
+
 import robotManageSystem.dto.BaseResponse;
 import robotManageSystem.dto.PageResultDTO;
 

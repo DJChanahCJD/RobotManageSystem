@@ -51,6 +51,9 @@ export default {
   mounted () {
     getUserInfo().then(res => {
       this.currentUser = res.result
+    }).catch(err => {
+      this.$message.error('获取用户信息失败: ' + err.message)
+      this.$router.push('/user/login')
     })
   }
 }

@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson2.JSON;
 import com.huawei.innovation.rdm.coresdk.basic.dto.GenericLinkQueryDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.MasterIdModifierDTO;
 import com.huawei.innovation.rdm.coresdk.basic.dto.PersistObjectIdDecryptDTO;

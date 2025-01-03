@@ -237,10 +237,10 @@ public class DesignBlueprintController {
             // 调用 FileDelegatorService 的 downloadFile 方法
             fileDelegatorService.downloadFile(
                 fileId,                  // fileIds - 文件ID
-                "DesignBlueprint",       // modelName
-                "BluePrint",             // attributeName
-                blueprintId,             // instanceId - 蓝图实体ID
-                "1dd2dce363cc4e5fbe951a171a91b825", // applicationId
+                "DesignBlueprint",       // 替换成你的modelName
+                "BluePrint",             // 替换成你的attributeName
+                blueprintId,             // 替换成你的instanceId
+                "1dd2dce363cc4e5fbe951a171a91b825", // 替换成你的applicationId, 即rdm_xxx..xxx_app中间的“xxx..xxx”
                 "0",                     // isMasterAttr
                 response                 // HttpServletResponse
             );

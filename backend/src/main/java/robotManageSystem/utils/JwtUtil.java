@@ -32,18 +32,6 @@ public class JwtUtil {
             .compact();
     }
 
-    public String getUserIdFromToken(String token) {
-        try {
-            Claims claims = Jwts.parser()
-                .setSigningKey(secret)
-                .parseClaimsJws(token)
-                .getBody();
-            return claims.getSubject();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
     public void clearToken(String token) {
         // 清除token
         JwtParser parser = Jwts.parser().setSigningKey(secret);

@@ -1,10 +1,7 @@
 package robotManageSystem.controller;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +26,7 @@ import com.huawei.innovation.rdm.intelligentrobotengineering.delegator.OrderDele
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderCreateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderUpdateDTO;
 import com.huawei.innovation.rdm.intelligentrobotengineering.dto.entity.OrderViewDTO;
+
 import robotManageSystem.dto.BaseResponse;
 import robotManageSystem.dto.PageResultDTO;
 
@@ -149,32 +147,6 @@ public class OrderController {
         }
     }
 
-    //按类型获取订单列表
-    @GetMapping("/by-type/{type}")
-    public ResponseEntity<?> findOrdersByType(
-            @PathVariable String type,
-            @RequestParam(defaultValue = "1") int pageNo,
-            @RequestParam(defaultValue = "10") int pageSize) {
-        try {
-            QueryRequestVo queryRequestVo = new QueryRequestVo();
-            queryRequestVo.addCondition("type", ConditionType.EQUAL, type);
-
-            List<OrderViewDTO> orders = orderDelegator.find(queryRequestVo, new RDMPageVO(pageNo, pageSize));
-            long totalCount = orderDelegator.count(queryRequestVo);
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("pageSize", pageSize);
-            result.put("pageNo", pageNo);
-            result.put("totalCount", totalCount);
-            result.put("data", orders);
-
-            return ResponseEntity.ok(BaseResponse.ok(result));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("按类型获取订单列表失败：" + e.getMessage()));
-        }
-    }
-
     @PutMapping("/{id}")
     public ResponseEntity<?> updateOrder(@PathVariable Long id, @RequestBody OrderUpdateDTO updateDTO) {
         try {
@@ -183,17 +155,6 @@ public class OrderController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(BaseResponse.error("更新订单失败：" + e.getMessage()));
-        }
-    }
-
-    @GetMapping("/count")
-    public ResponseEntity<?> countOrders() {
-        try {
-            long count = orderDelegator.count(new QueryRequestVo());
-            return ResponseEntity.ok(BaseResponse.ok(Collections.singletonMap("count", count)));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(BaseResponse.error("获取订单数量失败：" + e.getMessage()));
         }
     }
 }
