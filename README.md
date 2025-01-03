@@ -95,3 +95,7 @@ yarn serve
 3. 默认端口配置:
    - 前端服务: 8000
    - 后端服务: 8080
+  
+## 预览图
+![image](https://github.com/user-attachments/assets/7f17757e-6664-4e42-87ca-8fec04cf75f3)
+
